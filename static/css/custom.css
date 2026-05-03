@@ -1,0 +1,49 @@
+/* 旅行記録アプリ カスタムCSS */
+
+body {
+    background-color: #f7f9fc;
+}
+
+/* ナビバー（青系のカラースキーム） */
+.bg-travel-primary {
+    background-color: #2a7ad6 !important;
+}
+
+/* 旅行ステータスのバッジ */
+.badge.bg-status-planning   { background-color: #6c757d !important; }
+.badge.bg-status-preparing  { background-color: #fd7e14 !important; }
+.badge.bg-status-ongoing    { background-color: #2a7ad6 !important; }
+.badge.bg-status-organizing { background-color: #6f42c1 !important; }
+.badge.bg-status-done       { background-color: #198754 !important; }
+
+/* 旅行カード */
+.trip-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.trip-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 詳細画面の文字サイズ切替（思い出読み返し用） */
+.font-size-controls {
+    display: inline-flex;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.font-size-controls .fs-btn {
+    border: 0;
+    background: transparent;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+.font-size-controls .fs-btn.active {
+    background-color: #2a7ad6;
+    color: #fff;
+}
+
+.detail-content.fs-small  { font-size: 0.9rem; }
+.detail-content.fs-medium { font-size: 1rem; }
+.detail-content.fs-large  { font-size: 1.15rem; }

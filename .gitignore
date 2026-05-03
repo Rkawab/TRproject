@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+
+# Django
+*.log
+*.pot
+*.pyc
+*.pyo
+*.db
+
+# Environments
+.env*
+.venv/
+env/
+venv/
+ENV/
+
+# VSCode, PyCharmなどIDE系
+.vscode/
+.idea/
+
+# Migrations
+**/migrations/
+!*/migrations/__init__.py
+
+# Static files
+staticfiles/
+
+# Media (将来の写真機能用)
+media/
+
+# macOS/Linux/Windows一時ファイル
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}403 アクセス拒否{% endblock %}
+{% block content %}
+<div class="text-center mt-5">
+    <h1 class="display-4">403</h1>
+    <p class="lead">このページへのアクセスは許可されていません。</p>
+    <a href="{% url 'home' %}" class="btn btn-outline-primary">トップへ</a>
+</div>
+{% endblock %}

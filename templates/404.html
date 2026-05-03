@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}404 ページが見つかりません{% endblock %}
+{% block content %}
+<div class="text-center mt-5">
+    <h1 class="display-4">404</h1>
+    <p class="lead">お探しのページは見つかりませんでした。</p>
+    <a href="{% url 'home' %}" class="btn btn-outline-primary">トップへ</a>
+</div>
+{% endblock %}

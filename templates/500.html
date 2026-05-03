@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}500 サーバーエラー{% endblock %}
+{% block content %}
+<div class="text-center mt-5">
+    <h1 class="display-4">500</h1>
+    <p class="lead">サーバー側でエラーが発生しました。</p>
+    <a href="{% url 'home' %}" class="btn btn-outline-primary">トップへ</a>
+</div>
+{% endblock %}
