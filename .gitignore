@@ -21,9 +21,8 @@ ENV/
 .vscode/
 .idea/
 
-# Migrations
-**/migrations/
-!*/migrations/__init__.py
+# Migrations（マイグレーションファイルはgit管理対象）
+**/migrations/__pycache__/
 
 # Static files
 staticfiles/
