@@ -11,41 +11,63 @@
 
 <form method="POST">
     {% csrf_token %}
+    {{ formset.management_form }}
 
+    <!-- 思い出メモ（箇条書き） -->
     <div class="card mb-3 shadow-sm">
-        <div class="card-header fw-bold">振り返り</div>
+        <div class="card-header fw-bold">💭 思い出メモ</div>
         <div class="card-body">
-            <div class="mb-3">
-                <label class="form-label">{{ form.best_place.label }}</label>
-                {% render_field form.best_place %}
+            <div class="text-muted small mb-3">
+                良かったこと・悪かったこと・食べたもの・気づいたこと、なんでも1つずつ自由に追加してください。
             </div>
-            <div class="mb-3">
-                <label class="form-label">{{ form.revisit.label }}</label>
-                {% render_field form.revisit %}
+
+            <div id="note-formset">
+                {% for f in formset %}
+                <div class="d-flex gap-2 mb-2 note-row{% if f.errors %} border border-danger rounded p-1{% endif %}">
+                    {{ f.id }}
+                    {% render_field f.body style="flex:1" %}
+                    <div class="flex-shrink-0">
+                        {% if f.instance.pk %}
+                        <label class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 mb-0">
+                            {{ f.DELETE }}<span>削除</span>
+                        </label>
+                        {% else %}
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if f.errors %}
+                <div class="text-danger small mb-1">
+                    {% for field, errs in f.errors.items %}{{ errs|striptags }}{% endfor %}
+                </div>
+                {% endif %}
+                {% endfor %}
             </div>
-            <div class="mb-3">
-                <label class="form-label">{{ form.delicious.label }}</label>
-                {% render_field form.delicious %}
+
+            <div id="note-empty" class="d-none">
+                <div class="d-flex gap-2 mb-2 note-row">
+                    <input type="hidden" name="memory_notes-__prefix__-id">
+                    <textarea name="memory_notes-__prefix__-body" class="form-control" rows="2"
+                        placeholder="例: 奥武島のタコス最高だった / 次は那覇も1泊したい"></textarea>
+                    <div class="flex-shrink-0">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button>
+                    </div>
+                </div>
             </div>
-            <div class="mb-3">
-                <label class="form-label">{{ form.impression.label }}</label>
-                {% render_field form.impression %}
-            </div>
-            <div class="mb-3">
-                <label class="form-label">{{ form.next_time.label }}</label>
-                {% render_field form.next_time %}
-            </div>
+
+            <button type="button" id="add-note" class="btn btn-outline-secondary btn-sm mt-1">＋ メモを追加</button>
         </div>
     </div>
 
+    <!-- 旅行記本文 -->
     <div class="card mb-3 shadow-sm border-info">
         <div class="card-header fw-bold bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
             <span>📖 旅行記本文</span>
             <button type="button" id="ai-journal-gen" class="btn btn-outline-info btn-sm">AIで生成</button>
         </div>
         <div class="card-body">
-            {% render_field form.journal %}
-            <div class="form-text">AI生成または手書きの本文を保存できます。AI生成時は当日メモ・日程・思い出ハイライトを参考にします。</div>
+            {% render_field journal_form.journal %}
+            <div class="form-text">AI生成または手書きの本文。AIは思い出メモをもとに執筆します。</div>
             <div id="ai-journal-status" class="d-none mt-2">
                 <div class="spinner-border spinner-border-sm text-info me-1" role="status"></div>
                 <span class="text-muted small">AIが旅行記を執筆中…（20〜40秒ほど）</span>
@@ -67,6 +89,29 @@
 {% block extra_js %}
 <script>
 (function () {
+    // --- 行追加/削除 ---
+    const formset = document.getElementById('note-formset');
+    const emptyTpl = document.getElementById('note-empty');
+    const total = document.getElementById('id_memory_notes-TOTAL_FORMS');
+    const addBtn = document.getElementById('add-note');
+
+    function bindRemove() {
+        document.querySelectorAll('#note-formset .remove-row').forEach(function (btn) {
+            btn.onclick = function () { btn.closest('.note-row').remove(); };
+        });
+    }
+
+    addBtn.addEventListener('click', function () {
+        const idx = parseInt(total.value);
+        const html = emptyTpl.innerHTML.replace(/__prefix__/g, idx);
+        formset.insertAdjacentHTML('beforeend', html);
+        total.value = idx + 1;
+        bindRemove();
+    });
+
+    bindRemove();
+
+    // --- AI旅行記生成 ---
     const btn = document.getElementById('ai-journal-gen');
     const statusEl = document.getElementById('ai-journal-status');
     const errorEl = document.getElementById('ai-journal-error');

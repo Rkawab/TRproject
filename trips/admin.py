@@ -2,24 +2,11 @@ from django.contrib import admin
 
 from .models import (
     Trip,
-    TripDay,
-    ItineraryItem,
     PackingItem,
-    TravelMemo,
     MemoryEntry,
+    MemoryNote,
     AISuggestionLog,
 )
-
-
-class TripDayInline(admin.TabularInline):
-    model = TripDay
-    extra = 0
-
-
-class ItineraryItemInline(admin.TabularInline):
-    model = ItineraryItem
-    extra = 0
-    fields = ("date", "time", "title", "place", "reservation_number")
 
 
 class PackingItemInline(admin.TabularInline):
@@ -28,11 +15,11 @@ class PackingItemInline(admin.TabularInline):
     fields = ("category", "name", "is_done", "note")
 
 
-class TravelMemoInline(admin.TabularInline):
-    model = TravelMemo
+class MemoryNoteInline(admin.TabularInline):
+    model = MemoryNote
     extra = 0
-    fields = ("category", "body", "recorded_at")
-    readonly_fields = ("recorded_at",)
+    fields = ("body", "created_at")
+    readonly_fields = ("created_at",)
 
 
 @admin.register(Trip)
@@ -42,7 +29,7 @@ class TripAdmin(admin.ModelAdmin):
     )
     list_filter = ("status",)
     search_fields = ("name", "destination", "theme")
-    inlines = [TripDayInline, ItineraryItemInline, PackingItemInline, TravelMemoInline]
+    inlines = [PackingItemInline, MemoryNoteInline]
 
 
 @admin.register(MemoryEntry)
