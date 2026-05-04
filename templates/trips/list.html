@@ -4,9 +4,69 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mt-3 mb-3">
     <h2>旅行一覧</h2>
+    <a href="{% url 'trips:create' %}" class="btn btn-primary">＋ 新規作成</a>
 </div>
 
-<div class="alert alert-info">
-    段階1: モデル定義のみ完了。新規登録・詳細・編集は段階2で実装予定です。
+<!-- 検索・絞り込み -->
+<form method="GET" class="row g-2 mb-4">
+    <div class="col-12 col-md-5">
+        <input type="text" name="q" value="{{ query }}" class="form-control"
+               placeholder="旅行名・行き先で検索">
+    </div>
+    <div class="col-7 col-md-3">
+        <select name="status" class="form-select">
+            <option value="">ステータス すべて</option>
+            {% for code, label in status_choices %}
+            <option value="{{ code }}" {% if status == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-5 col-md-2">
+        <button type="submit" class="btn btn-outline-secondary w-100">絞り込み</button>
+    </div>
+    {% if query or status %}
+    <div class="col-12 col-md-2">
+        <a href="{% url 'trips:list' %}" class="btn btn-outline-danger w-100">リセット</a>
+    </div>
+    {% endif %}
+</form>
+
+<p class="text-muted small">{{ trips|length }} 件</p>
+
+{% if trips %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+    {% for trip in trips %}
+    <div class="col">
+        <a href="{% url 'trips:detail' trip.pk %}" class="text-decoration-none">
+            <div class="card h-100 shadow-sm trip-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title text-dark fw-bold mb-0">{{ trip.name }}</h5>
+                        <span class="badge bg-status-{{ trip.status }}">{{ trip.status_label }}</span>
+                    </div>
+                    {% if trip.destination %}
+                    <p class="card-text text-muted mb-1">📍 {{ trip.destination }}</p>
+                    {% endif %}
+                    {% if trip.start_date %}
+                    <p class="card-text small text-muted mb-1">
+                        📅 {{ trip.start_date|date:"Y/m/d" }}
+                        {% if trip.end_date %}〜 {{ trip.end_date|date:"Y/m/d" }}{% endif %}
+                        {% if trip.duration_days %}（{{ trip.duration_days }}日間）{% endif %}
+                    </p>
+                    {% endif %}
+                    {% if trip.theme %}
+                    <p class="card-text small text-muted mb-0">🏷️ {{ trip.theme }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
 </div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <p>旅行が見つかりません。</p>
+    <a href="{% url 'trips:create' %}" class="btn btn-primary">最初の旅行を登録する</a>
+</div>
+{% endif %}
 {% endblock %}

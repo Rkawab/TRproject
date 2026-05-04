@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+    <h2>{{ title }}</h2>
+    <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary btn-sm">← 詳細へ戻る</a>
+</div>
+<p class="text-muted small">旅行: <strong>{{ trip.name }}</strong></p>
+
+<form method="POST">
+    {% csrf_token %}
+    {{ formset.management_form }}
+
+    <div class="text-muted small mb-2">
+        各予定の日付・時刻・場所などを入力してください。空のままにすれば追加されません。
+    </div>
+
+    <div id="itinerary-formset">
+        {% for f in formset %}
+        <div class="card mb-2 shadow-sm itinerary-row{% if f.errors %} border-danger{% endif %}">
+            <div class="card-body p-2">
+                {{ f.id }}
+                <div class="row g-2 align-items-end">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-0">日付</label>
+                        {% render_field f.date %}
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small mb-0">時刻</label>
+                        {% render_field f.time %}
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small mb-0">タイトル</label>
+                        {% render_field f.title %}
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small mb-0">場所</label>
+                        {% render_field f.place %}
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="form-label small mb-0">URL</label>
+                        {% render_field f.url %}
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-0">予約番号</label>
+                        {% render_field f.reservation_number %}
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small mb-0">メモ</label>
+                        {% render_field f.memo %}
+                    </div>
+                    <div class="col-12 col-md-12 text-end">
+                        {% if f.instance.pk %}
+                        <label class="small text-danger">
+                            {{ f.DELETE }} 削除
+                        </label>
+                        {% else %}
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕ この行を削除</button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if f.errors %}
+                <div class="text-danger small mt-1">
+                    {% for field, errs in f.errors.items %}<strong>{{ field }}:</strong> {{ errs|striptags }}<br>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 追加用テンプレート -->
+    <div id="itinerary-empty" class="d-none">
+        <div class="card mb-2 shadow-sm itinerary-row">
+            <div class="card-body p-2">
+                <input type="hidden" name="itinerary_items-__prefix__-id">
+                <div class="row g-2 align-items-end">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-0">日付</label>
+                        <input type="date" name="itinerary_items-__prefix__-date" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small mb-0">時刻</label>
+                        <input type="time" name="itinerary_items-__prefix__-time" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small mb-0">タイトル</label>
+                        <input type="text" name="itinerary_items-__prefix__-title" class="form-control form-control-sm" placeholder="予定名">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small mb-0">場所</label>
+                        <input type="text" name="itinerary_items-__prefix__-place" class="form-control form-control-sm" placeholder="場所">
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="form-label small mb-0">URL</label>
+                        <input type="url" name="itinerary_items-__prefix__-url" class="form-control form-control-sm" placeholder="https://...">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-0">予約番号</label>
+                        <input type="text" name="itinerary_items-__prefix__-reservation_number" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small mb-0">メモ</label>
+                        <textarea name="itinerary_items-__prefix__-memo" class="form-control form-control-sm" rows="1"></textarea>
+                    </div>
+                    <div class="col-12 col-md-12 text-end">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕ この行を削除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button type="button" id="add-itinerary" class="btn btn-outline-secondary btn-sm mb-3">＋ 予定を追加</button>
+
+    <div class="d-flex gap-2 mb-4">
+        <button type="submit" class="btn btn-primary px-4">保存</button>
+        <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary">キャンセル</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const formset = document.getElementById('itinerary-formset');
+    const emptyTpl = document.getElementById('itinerary-empty');
+    const total = document.getElementById('id_itinerary_items-TOTAL_FORMS');
+    const addBtn = document.getElementById('add-itinerary');
+
+    function bindRemove() {
+        document.querySelectorAll('#itinerary-formset .remove-row').forEach(function (btn) {
+            btn.onclick = function () {
+                btn.closest('.itinerary-row').remove();
+            };
+        });
+    }
+
+    addBtn.addEventListener('click', function () {
+        const idx = parseInt(total.value);
+        const html = emptyTpl.innerHTML.replace(/__prefix__/g, idx);
+        formset.insertAdjacentHTML('beforeend', html);
+        total.value = idx + 1;
+        bindRemove();
+    });
+
+    bindRemove();
+})();
+</script>
+{% endblock %}

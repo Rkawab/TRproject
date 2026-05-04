@@ -7,7 +7,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from datetime import timedelta
-from django.contrib.auth.models import UserManager
+from .managers import UserManager
 from .utils import send_activation_email
 
 logger = logging.getLogger(__name__)

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+    <h2>{{ title }}</h2>
+    <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary btn-sm">← 詳細へ戻る</a>
+</div>
+<p class="text-muted small">旅行: <strong>{{ trip.name }}</strong></p>
+
+<form method="POST">
+    {% csrf_token %}
+    {{ formset.management_form }}
+
+    <div class="text-muted small mb-2">
+        旅行中にスマホから素早く記録するためのメモ。分類はあとから変更できます。
+    </div>
+
+    <div id="memo-formset">
+        {% for f in formset %}
+        <div class="card mb-2 shadow-sm memo-row{% if f.errors %} border-danger{% endif %}">
+            <div class="card-body p-2">
+                {{ f.id }}
+                <div class="row g-2 align-items-start">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small mb-0">分類</label>
+                        {% render_field f.category %}
+                    </div>
+                    <div class="col-12 col-md-8">
+                        <label class="form-label small mb-0">メモ</label>
+                        {% render_field f.body %}
+                    </div>
+                    <div class="col-12 col-md-1 text-end pt-md-4">
+                        {% if f.instance.pk %}
+                        <label class="small text-danger">{{ f.DELETE }} 削除</label>
+                        {% else %}
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if f.errors %}
+                <div class="text-danger small">
+                    {% for field, errs in f.errors.items %}<strong>{{ field }}:</strong> {{ errs|striptags }}<br>{% endfor %}
+                </div>
+                {% endif %}
+                {% if f.instance.pk %}
+                <div class="text-muted small mt-1">記録: {{ f.instance.recorded_at|date:"Y/m/d H:i" }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="memo-empty" class="d-none">
+        <div class="card mb-2 shadow-sm memo-row">
+            <div class="card-body p-2">
+                <input type="hidden" name="travel_memos-__prefix__-id">
+                <div class="row g-2 align-items-start">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small mb-0">分類</label>
+                        <select name="travel_memos-__prefix__-category" class="form-select form-select-sm">
+                            <option value="food">食べたもの</option>
+                            <option value="place">行った場所</option>
+                            <option value="buy">買ったもの</option>
+                            <option value="good">良かったこと</option>
+                            <option value="organize">あとで整理したいこと</option>
+                            <option value="impression" selected>ちょっとした感想</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-8">
+                        <label class="form-label small mb-0">メモ</label>
+                        <textarea name="travel_memos-__prefix__-body" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="col-12 col-md-1 text-end pt-md-4">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button type="button" id="add-memo" class="btn btn-outline-secondary btn-sm mb-3">＋ メモを追加</button>
+
+    <div class="d-flex gap-2 mb-4">
+        <button type="submit" class="btn btn-primary px-4">保存</button>
+        <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary">キャンセル</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const formset = document.getElementById('memo-formset');
+    const emptyTpl = document.getElementById('memo-empty');
+    const total = document.getElementById('id_travel_memos-TOTAL_FORMS');
+    const addBtn = document.getElementById('add-memo');
+
+    function bindRemove() {
+        document.querySelectorAll('#memo-formset .remove-row').forEach(function (btn) {
+            btn.onclick = function () { btn.closest('.memo-row').remove(); };
+        });
+    }
+
+    addBtn.addEventListener('click', function () {
+        const idx = parseInt(total.value);
+        const html = emptyTpl.innerHTML.replace(/__prefix__/g, idx);
+        formset.insertAdjacentHTML('beforeend', html);
+        total.value = idx + 1;
+        bindRemove();
+    });
+
+    bindRemove();
+})();
+</script>
+{% endblock %}

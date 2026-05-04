@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+{% block title %}{{ trip.name }}{% endblock %}
+
+{% block content %}
+<div class="mt-3">
+
+    <!-- ヘッダー -->
+    <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+        <div>
+            <h2 class="mb-1">{{ trip.name }}</h2>
+            <div class="mb-1">
+                <span class="badge bg-status-{{ trip.status }}">{{ trip.status_label }}</span>
+                {% if trip.theme %}
+                <span class="badge bg-secondary">{{ trip.theme }}</span>
+                {% endif %}
+            </div>
+            {% if trip.destination %}<p class="text-muted mb-0">📍 {{ trip.destination }}</p>{% endif %}
+            {% if trip.start_date %}
+            <p class="text-muted small mb-0">
+                📅 {{ trip.start_date|date:"Y年m月d日" }}
+                {% if trip.end_date %}〜 {{ trip.end_date|date:"Y年m月d日" }}{% endif %}
+                {% if trip.duration_days %}（{{ trip.duration_days }}日間）{% endif %}
+            </p>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'trips:edit' trip.pk %}" class="btn btn-outline-secondary btn-sm">基本情報を編集</a>
+            <a href="{% url 'trips:delete' trip.pk %}" class="btn btn-outline-danger btn-sm">削除</a>
+        </div>
+    </div>
+
+    {% if trip.summary %}
+    <div class="card mb-3 shadow-sm">
+        <div class="card-body">
+            <h6 class="card-subtitle text-muted mb-2">概要メモ</h6>
+            <p class="mb-0" style="white-space: pre-wrap;">{{ trip.summary }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 日程 -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold">📅 日程</span>
+            <a href="{% url 'trips:itinerary_edit' trip.pk %}" class="btn btn-outline-primary btn-sm">編集</a>
+        </div>
+        <div class="card-body">
+            {% if itinerary_by_date %}
+            {% for date, items in itinerary_by_date %}
+            <h6 class="text-primary border-bottom pb-1 mb-2">{{ date|date:"Y年m月d日 (D)" }}</h6>
+            <ul class="list-group list-group-flush mb-3">
+                {% for item in items %}
+                <li class="list-group-item px-0">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            {% if item.time %}<strong class="text-muted me-2">{{ item.time|time:"H:i" }}</strong>{% endif %}
+                            <strong>{{ item.title }}</strong>
+                            {% if item.place %}<span class="text-muted small ms-2">📍 {{ item.place }}</span>{% endif %}
+                            {% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noopener" class="ms-2 small">🔗 リンク</a>{% endif %}
+                            {% if item.reservation_number %}<span class="badge bg-light text-dark ms-2">予約: {{ item.reservation_number }}</span>{% endif %}
+                            {% if item.memo %}<div class="text-muted small mt-1" style="white-space: pre-wrap;">{{ item.memo }}</div>{% endif %}
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endfor %}
+            {% else %}
+            <p class="text-muted mb-0">まだ予定がありません。</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 準備リスト -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold">🎒 準備リスト</span>
+            <a href="{% url 'trips:packing_edit' trip.pk %}" class="btn btn-outline-primary btn-sm">編集</a>
+        </div>
+        <div class="card-body">
+            {% if packing_groups %}
+            {% for label, items in packing_groups %}
+            <h6 class="text-success border-bottom pb-1 mb-2">{{ label }}</h6>
+            <ul class="list-group list-group-flush mb-3">
+                {% for item in items %}
+                <li class="list-group-item px-0 d-flex align-items-center">
+                    <span class="me-2">{% if item.is_done %}✅{% else %}⬜{% endif %}</span>
+                    <span class="{% if item.is_done %}text-decoration-line-through text-muted{% endif %}">{{ item.name }}</span>
+                    {% if item.note %}<span class="text-muted small ms-2">— {{ item.note }}</span>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% endfor %}
+            {% else %}
+            <p class="text-muted mb-0">まだ準備項目がありません。</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 当日メモ -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold">📝 当日メモ</span>
+            <a href="{% url 'trips:memo_edit' trip.pk %}" class="btn btn-outline-primary btn-sm">編集</a>
+        </div>
+        <div class="card-body">
+            {% if memo_groups %}
+            {% for label, items in memo_groups %}
+            <h6 class="text-warning border-bottom pb-1 mb-2">{{ label }}</h6>
+            <ul class="list-group list-group-flush mb-3">
+                {% for memo in items %}
+                <li class="list-group-item px-0">
+                    <div style="white-space: pre-wrap;">{{ memo.body }}</div>
+                    <small class="text-muted">{{ memo.recorded_at|date:"m/d H:i" }}</small>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endfor %}
+            {% else %}
+            <p class="text-muted mb-0">まだ当日メモがありません。</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 思い出 -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold">💭 思い出</span>
+            <a href="{% url 'trips:memory_edit' trip.pk %}" class="btn btn-outline-primary btn-sm">編集</a>
+        </div>
+        <div class="card-body">
+            {% if memory %}
+            {% if memory.best_place %}<p><strong>一番良かった場所:</strong><br><span style="white-space: pre-wrap;">{{ memory.best_place }}</span></p>{% endif %}
+            {% if memory.revisit %}<p><strong>また行きたい場所:</strong><br><span style="white-space: pre-wrap;">{{ memory.revisit }}</span></p>{% endif %}
+            {% if memory.delicious %}<p><strong>おいしかったもの:</strong><br><span style="white-space: pre-wrap;">{{ memory.delicious }}</span></p>{% endif %}
+            {% if memory.impression %}<p><strong>印象に残ったこと:</strong><br><span style="white-space: pre-wrap;">{{ memory.impression }}</span></p>{% endif %}
+            {% if memory.next_time %}<p><strong>次回に活かすメモ:</strong><br><span style="white-space: pre-wrap;">{{ memory.next_time }}</span></p>{% endif %}
+            {% if memory.journal %}
+            <hr>
+            <h6 class="fw-bold">旅行記</h6>
+            <div style="white-space: pre-wrap;">{{ memory.journal }}</div>
+            {% if memory.journal_generated_at %}
+            <p class="text-muted small mt-2 mb-0">※ AI生成（{{ memory.journal_generated_at|date:"Y/m/d H:i" }}）</p>
+            {% endif %}
+            {% endif %}
+            {% if not memory.best_place and not memory.revisit and not memory.delicious and not memory.impression and not memory.next_time and not memory.journal %}
+            <p class="text-muted mb-0">まだ思い出が記入されていません。</p>
+            {% endif %}
+            {% else %}
+            <p class="text-muted mb-0">まだ思い出が記入されていません。</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- AI機能 -->
+    <div class="card mb-4 shadow-sm border-info">
+        <div class="card-header fw-bold bg-info bg-opacity-10">🤖 AI機能</div>
+        <div class="card-body">
+            <p class="text-muted small mb-2">必要なときだけボタンを押してください（OpenAI API を呼び出します）。</p>
+            <div class="d-flex gap-2 flex-wrap mb-2">
+                <button type="button" id="ai-packing-btn" class="btn btn-outline-info btn-sm">準備リストを提案</button>
+                <button type="button" id="ai-questions-btn" class="btn btn-outline-info btn-sm">思い出整理の質問</button>
+                <button type="button" id="ai-journal-btn" class="btn btn-outline-info btn-sm">旅行記を生成</button>
+                <button type="button" id="ai-titles-btn" class="btn btn-outline-info btn-sm">タイトル案</button>
+            </div>
+            <div id="ai-status" class="d-none mt-2">
+                <div class="spinner-border spinner-border-sm text-info me-1" role="status"></div>
+                <span class="text-muted small">AIが考えています…（10〜30秒ほど）</span>
+            </div>
+            <div id="ai-error" class="d-none alert alert-danger py-2 small mt-2"></div>
+            <div id="ai-result" class="d-none mt-2"></div>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <a href="{% url 'trips:list' %}" class="btn btn-outline-secondary btn-sm">← 一覧へ戻る</a>
+    </div>
+</div>
+
+{# CSRF トークンを JS から参照するための隠しフォーム #}
+<form style="display:none;">{% csrf_token %}</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const URLS = {
+        packing:      '{% url "trips:ai_packing" trip.pk %}',
+        questions:    '{% url "trips:ai_questions" trip.pk %}',
+        journal:      '{% url "trips:ai_journal" trip.pk %}',
+        titles:       '{% url "trips:ai_titles" trip.pk %}',
+        packingEdit:  '{% url "trips:packing_edit" trip.pk %}',
+        memoryEdit:   '{% url "trips:memory_edit" trip.pk %}',
+        edit:         '{% url "trips:edit" trip.pk %}',
+    };
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const status = document.getElementById('ai-status');
+    const errorEl = document.getElementById('ai-error');
+    const resultEl = document.getElementById('ai-result');
+    const buttons = document.querySelectorAll('#ai-packing-btn, #ai-questions-btn, #ai-journal-btn, #ai-titles-btn');
+
+    function setBusy(busy) {
+        buttons.forEach(b => b.disabled = busy);
+        status.classList.toggle('d-none', !busy);
+        if (busy) {
+            errorEl.classList.add('d-none');
+            resultEl.classList.add('d-none');
+        }
+    }
+
+    function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.classList.remove('d-none');
+    }
+
+    function showResult(html) {
+        resultEl.innerHTML = html;
+        resultEl.classList.remove('d-none');
+    }
+
+    function escapeHTML(str) {
+        return String(str).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    async function callAI(url) {
+        setBusy(true);
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+            });
+            const data = await res.json();
+            setBusy(false);
+            if (!res.ok) {
+                showError(data.error || 'エラーが発生しました。');
+                return null;
+            }
+            return data;
+        } catch (e) {
+            setBusy(false);
+            showError('通信エラー: ' + e.message);
+            return null;
+        }
+    }
+
+    document.getElementById('ai-packing-btn').addEventListener('click', async () => {
+        if (!confirm('AIで準備リスト候補を生成し、自動で追加します。よろしいですか？')) return;
+        const data = await callAI(URLS.packing);
+        if (!data) return;
+        if (!data.count) {
+            showResult('<div class="alert alert-warning py-2 small mb-0">追加すべき項目はないようです。</div>');
+            return;
+        }
+        const items = data.created.map(i =>
+            `<li>[${escapeHTML(i.category_label)}] ${escapeHTML(i.name)}${i.note ? ' — ' + escapeHTML(i.note) : ''}</li>`
+        ).join('');
+        showResult(
+            `<div class="alert alert-success py-2 small mb-0">` +
+            `${data.count}件追加しました。<ul class="mb-1 mt-1">${items}</ul>` +
+            `不要な項目は<a href="${URLS.packingEdit}">準備リスト編集画面</a>で削除してください。` +
+            ` <a href="">↻ ページを再読込</a>すると上の準備リストにも反映されます。` +
+            `</div>`
+        );
+    });
+
+    document.getElementById('ai-questions-btn').addEventListener('click', async () => {
+        const data = await callAI(URLS.questions);
+        if (!data) return;
+        const items = (data.questions || []).map(q => `<li>${escapeHTML(q)}</li>`).join('');
+        showResult(
+            `<div class="card border-info">` +
+            `  <div class="card-header bg-info bg-opacity-10 fw-bold small">思い出整理の質問</div>` +
+            `  <div class="card-body small">` +
+            `    <ol class="mb-2">${items}</ol>` +
+            `    <a href="${URLS.memoryEdit}">思い出編集画面</a>でこれらを参考に書き込んでください。` +
+            `  </div>` +
+            `</div>`
+        );
+    });
+
+    document.getElementById('ai-journal-btn').addEventListener('click', async () => {
+        if (!confirm('AIで旅行記本文を生成します。既存の本文は上書きされます。よろしいですか？')) return;
+        const data = await callAI(URLS.journal);
+        if (!data) return;
+        showResult(
+            `<div class="alert alert-success py-2 small mb-0">` +
+            `旅行記を生成・保存しました。` +
+            `<a href="${data.redirect}">確認・編集はこちら</a>` +
+            `</div>`
+        );
+    });
+
+    document.getElementById('ai-titles-btn').addEventListener('click', async () => {
+        const data = await callAI(URLS.titles);
+        if (!data) return;
+        const items = (data.titles || []).map(t =>
+            `<li class="d-flex justify-content-between align-items-center mb-1">` +
+            `  <span>${escapeHTML(t)}</span>` +
+            `  <button type="button" class="btn btn-outline-secondary btn-sm copy-title" data-title="${escapeHTML(t)}">コピー</button>` +
+            `</li>`
+        ).join('');
+        showResult(
+            `<div class="card border-info">` +
+            `  <div class="card-header bg-info bg-opacity-10 fw-bold small">タイトル案</div>` +
+            `  <div class="card-body small">` +
+            `    <ul class="list-unstyled mb-2">${items}</ul>` +
+            `    気に入ったものを<a href="${URLS.edit}">基本情報の編集</a>で旅行名に貼り付けてください。` +
+            `  </div>` +
+            `</div>`
+        );
+        document.querySelectorAll('.copy-title').forEach(btn => {
+            btn.addEventListener('click', () => {
+                navigator.clipboard.writeText(btn.dataset.title).then(() => {
+                    const orig = btn.textContent;
+                    btn.textContent = '✓ コピー済';
+                    setTimeout(() => btn.textContent = orig, 1500);
+                });
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+    <h2>{{ title }}</h2>
+    <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary btn-sm">← 詳細へ戻る</a>
+</div>
+<p class="text-muted small">旅行: <strong>{{ trip.name }}</strong></p>
+
+<form method="POST">
+    {% csrf_token %}
+
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header fw-bold">振り返り</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">{{ form.best_place.label }}</label>
+                {% render_field form.best_place %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.revisit.label }}</label>
+                {% render_field form.revisit %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.delicious.label }}</label>
+                {% render_field form.delicious %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.impression.label }}</label>
+                {% render_field form.impression %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.next_time.label }}</label>
+                {% render_field form.next_time %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3 shadow-sm border-info">
+        <div class="card-header fw-bold bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+            <span>📖 旅行記本文</span>
+            <button type="button" id="ai-journal-gen" class="btn btn-outline-info btn-sm">AIで生成</button>
+        </div>
+        <div class="card-body">
+            {% render_field form.journal %}
+            <div class="form-text">AI生成または手書きの本文を保存できます。AI生成時は当日メモ・日程・思い出ハイライトを参考にします。</div>
+            <div id="ai-journal-status" class="d-none mt-2">
+                <div class="spinner-border spinner-border-sm text-info me-1" role="status"></div>
+                <span class="text-muted small">AIが旅行記を執筆中…（20〜40秒ほど）</span>
+            </div>
+            <div id="ai-journal-error" class="d-none alert alert-danger py-2 small mt-2"></div>
+            <div id="ai-journal-success" class="d-none alert alert-success py-2 small mt-2">
+                生成完了！「保存」ボタンを押すとフォームの内容で確定します。
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-4">
+        <button type="submit" class="btn btn-primary px-4">保存</button>
+        <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary">キャンセル</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const btn = document.getElementById('ai-journal-gen');
+    const statusEl = document.getElementById('ai-journal-status');
+    const errorEl = document.getElementById('ai-journal-error');
+    const successEl = document.getElementById('ai-journal-success');
+    const journalTa = document.querySelector('textarea[name="journal"]');
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    btn.addEventListener('click', async () => {
+        if (!confirm('AIで旅行記本文を生成します。下のテキストエリアに反映され、サーバー側にも保存されます。よろしいですか？')) return;
+        btn.disabled = true;
+        statusEl.classList.remove('d-none');
+        errorEl.classList.add('d-none');
+        successEl.classList.add('d-none');
+        try {
+            const res = await fetch('{% url "trips:ai_journal" trip.pk %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+            });
+            const data = await res.json();
+            statusEl.classList.add('d-none');
+            btn.disabled = false;
+            if (!res.ok) {
+                errorEl.textContent = data.error || 'エラーが発生しました。';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+            if (journalTa) journalTa.value = data.journal || '';
+            successEl.classList.remove('d-none');
+        } catch (e) {
+            statusEl.classList.add('d-none');
+            btn.disabled = false;
+            errorEl.textContent = '通信エラー: ' + e.message;
+            errorEl.classList.remove('d-none');
+        }
+    });
+})();
+</script>
+{% endblock %}
