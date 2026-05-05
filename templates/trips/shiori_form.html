@@ -76,8 +76,123 @@
     <div class="card mb-3 shadow-sm">
         <div class="card-header fw-bold">🗺️ 旅行計画</div>
         <div class="card-body">
-            {% render_field form.md_plan %}
-            <div class="form-text">Markdown形式で旅行計画を自由に記録できます。</div>
+
+            <ul class="nav nav-tabs" id="planTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="plan-visual-tab" data-bs-toggle="tab"
+                        data-bs-target="#plan-visual" type="button" role="tab">📋 ビジュアル</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="plan-md-tab" data-bs-toggle="tab"
+                        data-bs-target="#plan-md" type="button" role="tab">📝 Markdown</button>
+                </li>
+            </ul>
+
+            <div class="tab-content border border-top-0 rounded-bottom p-3">
+
+                <!-- ビジュアル -->
+                <div class="tab-pane fade show active" id="plan-visual" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                        <small class="text-muted">日ごとに表で予定を入力できます。Markdownを知らなくてもOK。</small>
+                        <button type="button" id="plan-rebuild-days" class="btn btn-sm btn-outline-secondary">
+                            📅 開始/終了日から日を再生成
+                        </button>
+                    </div>
+
+                    <div id="plan-fallback-warning" class="alert alert-warning small d-none">
+                        ⚠️ 既存のMarkdown構造をビジュアルで解釈できなかったため、Markdownタブで直接編集してください。
+                    </div>
+
+                    <details class="mb-2 small">
+                        <summary class="text-muted">▼ 前置き（タイトル・&lt;style&gt;等／自由記述）</summary>
+                        <textarea id="plan-prefix" class="form-control font-monospace small mt-1" rows="3"
+                            placeholder="# 旅行タイトル など"></textarea>
+                    </details>
+
+                    <div id="plan-days"></div>
+
+                    <button type="button" id="plan-add-day" class="btn btn-outline-secondary btn-sm mb-2">
+                        ＋ 日を追加
+                    </button>
+
+                    <details class="mt-2 small">
+                        <summary class="text-muted">▼ 補足メモ（完成度ポイント等／自由記述）</summary>
+                        <textarea id="plan-suffix" class="form-control font-monospace small mt-1" rows="4"
+                            placeholder="## 🧠 今回のポイント&#10;- ..."></textarea>
+                    </details>
+                </div>
+
+                <!-- Markdown -->
+                <div class="tab-pane fade" id="plan-md" role="tabpanel">
+                    {% render_field form.md_plan %}
+                    <div class="form-text">Markdown形式で旅行計画を自由に記録できます。</div>
+                </div>
+            </div>
+
+            <!-- 日カード テンプレート -->
+            <template id="plan-day-tpl">
+                <div class="card mb-2 plan-day shadow-sm">
+                    <div class="card-header py-1 d-flex align-items-center gap-2 bg-light">
+                        <span class="text-muted small">##</span>
+                        <input type="text"
+                            class="form-control form-control-sm plan-day-heading"
+                            placeholder="例: 🏝️ 4/11（土）｜到着日">
+                        <button type="button" class="btn btn-sm btn-outline-danger plan-remove-day"
+                            title="この日を削除">✕</button>
+                    </div>
+                    <div class="card-body p-2">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle plan-row-table mb-2">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width:15%">時間</th>
+                                        <th>内容</th>
+                                        <th style="width:8%" class="text-center"
+                                            title="ONで **強調** として保存">重要</th>
+                                        <th style="width:16%">種別</th>
+                                        <th style="width:22%">メモ</th>
+                                        <th style="width:40px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody class="plan-rows"></tbody>
+                            </table>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary plan-add-row">
+                            ＋ 行を追加
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- 行 テンプレート -->
+            <template id="plan-row-tpl">
+                <tr class="plan-row">
+                    <td><input type="text" class="form-control form-control-sm plan-time"
+                            placeholder="13:00–15:00"></td>
+                    <td><input type="text" class="form-control form-control-sm plan-content"
+                            placeholder="例: クリアSUP（長間海岸）"></td>
+                    <td class="text-center">
+                        <input type="checkbox" class="form-check-input plan-important">
+                    </td>
+                    <td><input type="text" class="form-control form-control-sm plan-kind"
+                            list="plan-kind-list" placeholder="🚗移動 など"></td>
+                    <td><input type="text" class="form-control form-control-sm plan-memo"
+                            placeholder="メモ"></td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger plan-remove-row p-0 lh-1"
+                            style="width:28px;">✕</button>
+                    </td>
+                </tr>
+            </template>
+
+            <datalist id="plan-kind-list">
+                <option value="🚶移動"><option value="🚃移動"><option value="🚗移動">
+                <option value="✈️移動"><option value="🚗送迎"><option value="⛑️移動">
+                <option value="🍽️食事"><option value="🍻食事"><option value="🍙食事">
+                <option value="🤿海に入る"><option value="🏄‍♀️体験"><option value="🚶散歩">
+                <option value="💤休憩"><option value="🛍️休憩">
+                <option value="⛑️準備"><option value="⛑️手続き"><option value="🏠到着">
+            </datalist>
         </div>
     </div>
 
@@ -163,6 +278,7 @@
 
 {% block extra_js %}
 <script>
+// ===== 準備リスト formset =====
 (function () {
     const formset = document.getElementById('packing-formset');
     const emptyTpl = document.getElementById('packing-empty');
@@ -184,6 +300,246 @@
     });
 
     bindRemove();
+})();
+
+// ===== 旅行計画 ビジュアルエディタ =====
+(function () {
+    const mdField = document.getElementById('id_md_plan');
+    if (!mdField) return;
+
+    const visualPane = document.getElementById('plan-visual');
+    const visualTabBtn = document.getElementById('plan-visual-tab');
+    const mdTabBtn = document.getElementById('plan-md-tab');
+    const daysContainer = document.getElementById('plan-days');
+    const prefixField = document.getElementById('plan-prefix');
+    const suffixField = document.getElementById('plan-suffix');
+    const fallbackWarn = document.getElementById('plan-fallback-warning');
+    const addDayBtn = document.getElementById('plan-add-day');
+    const rebuildBtn = document.getElementById('plan-rebuild-days');
+    const dayTpl = document.getElementById('plan-day-tpl');
+    const rowTpl = document.getElementById('plan-row-tpl');
+    const formEl = mdField.closest('form');
+
+    // ----- パース: md → {ok, prefix, days, suffix} -----
+    function parseMd(md) {
+        const lines = (md || '').replace(/\r\n/g, '\n').split('\n');
+
+        const headerIdx = [];
+        for (let k = 0; k < lines.length; k++) {
+            if (/^##\s+/.test(lines[k])) headerIdx.push(k);
+        }
+
+        function blockHasTable(start, end) {
+            for (let k = start + 1; k < end; k++) {
+                if (/^\|.*\|.*\|/.test(lines[k])) return true;
+            }
+            return false;
+        }
+
+        const blocks = [];
+        for (let k = 0; k < headerIdx.length; k++) {
+            const s = headerIdx[k];
+            const e = (k + 1 < headerIdx.length) ? headerIdx[k + 1] : lines.length;
+            blocks.push({ start: s, end: e, hasTable: blockHasTable(s, e) });
+        }
+
+        let firstDay = -1, lastDay = -1;
+        for (let k = 0; k < blocks.length; k++) {
+            if (blocks[k].hasTable) {
+                if (firstDay === -1) firstDay = k;
+                lastDay = k;
+            } else if (firstDay !== -1) {
+                break;
+            }
+        }
+
+        if (firstDay === -1) {
+            return { ok: true, prefix: lines.join('\n').trim(), days: [], suffix: '' };
+        }
+
+        const prefix = lines.slice(0, blocks[firstDay].start).join('\n').replace(/\s+$/, '');
+        const suffix = lines.slice(blocks[lastDay].end).join('\n').replace(/^\s+/, '');
+
+        const days = [];
+        let parseOk = true;
+
+        for (let k = firstDay; k <= lastDay; k++) {
+            const b = blocks[k];
+            const heading = lines[b.start].replace(/^##\s+/, '').trim();
+            const rowLines = [];
+            let inTable = false, sepSeen = false, tableEnded = false, extraNonBlank = false;
+            for (let r = b.start + 1; r < b.end; r++) {
+                const ln = lines[r];
+                if (/^\|.*\|/.test(ln)) {
+                    if (!inTable) { inTable = true; continue; }
+                    if (!sepSeen && /^\|\s*[-:|\s]+\|/.test(ln)) { sepSeen = true; continue; }
+                    if (!tableEnded) rowLines.push(ln);
+                    else extraNonBlank = true;
+                } else {
+                    if (inTable && rowLines.length > 0) tableEnded = true;
+                    if (ln.trim() !== '' && ln.trim() !== '---' && tableEnded) extraNonBlank = true;
+                }
+            }
+            if (extraNonBlank) parseOk = false;
+            const rows = rowLines.map(parseRowLine).filter(Boolean);
+            days.push({ heading, rows });
+        }
+
+        return { ok: parseOk, prefix, days, suffix };
+    }
+
+    function splitPipeRow(line) {
+        let s = line.trim();
+        if (s.startsWith('|')) s = s.slice(1);
+        if (s.endsWith('|')) s = s.slice(0, -1);
+        return s.split('|').map(c => c.trim());
+    }
+
+    function parseRowLine(line) {
+        const cells = splitPipeRow(line);
+        while (cells.length < 4) cells.push('');
+        const [time, contentRaw, kind, memo] = cells;
+        let content = contentRaw, important = false;
+        const m = contentRaw.match(/^\*\*(.+)\*\*$/);
+        if (m) { content = m[1]; important = true; }
+        return { time, content, important, kind, memo };
+    }
+
+    // ----- シリアライズ -----
+    function serialize() {
+        const out = [];
+        const pre = (prefixField.value || '').trim();
+        if (pre) out.push(pre, '');
+
+        const dayCards = daysContainer.querySelectorAll('.plan-day');
+        dayCards.forEach((dc, idx) => {
+            if (idx > 0) out.push('---', '');
+            const heading = dc.querySelector('.plan-day-heading').value.trim() || `${idx + 1}日目`;
+            out.push(`## ${heading}`, '');
+            const rows = dc.querySelectorAll('.plan-row');
+            if (rows.length > 0) {
+                out.push('| 時間 | 内容 | 種別 | メモ |');
+                out.push('| --- | --- | --- | --- |');
+                rows.forEach(tr => {
+                    const time = cellEscape(tr.querySelector('.plan-time').value);
+                    let content = cellEscape(tr.querySelector('.plan-content').value);
+                    const important = tr.querySelector('.plan-important').checked;
+                    const kind = cellEscape(tr.querySelector('.plan-kind').value);
+                    const memo = cellEscape(tr.querySelector('.plan-memo').value);
+                    if (important && content) content = `**${content}**`;
+                    out.push(`| ${time} | ${content} | ${kind} | ${memo} |`);
+                });
+                out.push('');
+            }
+        });
+
+        const suf = (suffixField.value || '').trim();
+        if (suf) {
+            if (dayCards.length > 0) out.push('---', '');
+            out.push(suf);
+        }
+
+        return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+    }
+
+    function cellEscape(s) {
+        return (s || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+    }
+
+    // ----- UI 構築 -----
+    function buildDay(data) {
+        const node = dayTpl.content.firstElementChild.cloneNode(true);
+        node.querySelector('.plan-day-heading').value = (data && data.heading) || '';
+        const tbody = node.querySelector('.plan-rows');
+        const rows = (data && data.rows) || [];
+        if (rows.length === 0) tbody.appendChild(buildRow({}));
+        else rows.forEach(r => tbody.appendChild(buildRow(r)));
+        node.querySelector('.plan-remove-day').addEventListener('click', () => {
+            if (confirm('この日を削除しますか？')) node.remove();
+        });
+        node.querySelector('.plan-add-row').addEventListener('click', () => {
+            tbody.appendChild(buildRow({}));
+        });
+        return node;
+    }
+
+    function buildRow(r) {
+        const tr = rowTpl.content.firstElementChild.cloneNode(true);
+        tr.querySelector('.plan-time').value = r.time || '';
+        tr.querySelector('.plan-content').value = r.content || '';
+        tr.querySelector('.plan-important').checked = !!r.important;
+        tr.querySelector('.plan-kind').value = r.kind || '';
+        tr.querySelector('.plan-memo').value = r.memo || '';
+        tr.querySelector('.plan-remove-row').addEventListener('click', () => tr.remove());
+        return tr;
+    }
+
+    function rebuildVisualFromMd() {
+        const parsed = parseMd(mdField.value);
+        prefixField.value = parsed.prefix || '';
+        suffixField.value = parsed.suffix || '';
+        daysContainer.innerHTML = '';
+        parsed.days.forEach(d => daysContainer.appendChild(buildDay(d)));
+        if (!parsed.ok) {
+            fallbackWarn.classList.remove('d-none');
+            new bootstrap.Tab(mdTabBtn).show();
+        } else {
+            fallbackWarn.classList.add('d-none');
+        }
+    }
+
+    // ----- 開始/終了日から日カードを再生成 -----
+    const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+    function makeDayHeading(date) {
+        return `${date.getMonth() + 1}/${date.getDate()}（${WEEKDAYS[date.getDay()]}）`;
+    }
+
+    function rebuildFromDateRange() {
+        const startInput = document.getElementById('id_start_date');
+        const endInput = document.getElementById('id_end_date');
+        const s = startInput && startInput.value;
+        const e = endInput && endInput.value;
+        if (!s || !e) {
+            alert('基本情報の「開始日」「終了日」を先に入力してください。');
+            return;
+        }
+        const start = new Date(s + 'T00:00:00');
+        const end = new Date(e + 'T00:00:00');
+        const days = Math.round((end - start) / 86400000) + 1;
+        if (days < 1 || days > 60) {
+            alert('日数の計算に失敗しました。日付を確認してください。');
+            return;
+        }
+        if (daysContainer.children.length > 0 &&
+            !confirm(`現在の日カード ${daysContainer.children.length} 件を破棄して ${days} 日分を作り直しますか？`)) {
+            return;
+        }
+        daysContainer.innerHTML = '';
+        for (let k = 0; k < days; k++) {
+            const d = new Date(start.getTime() + k * 86400000);
+            daysContainer.appendChild(buildDay({ heading: makeDayHeading(d), rows: [] }));
+        }
+    }
+
+    // ----- タブ同期 -----
+    visualTabBtn.addEventListener('shown.bs.tab', rebuildVisualFromMd);
+    mdTabBtn.addEventListener('show.bs.tab', () => { mdField.value = serialize(); });
+
+    // ----- submit時に最終反映 -----
+    if (formEl) {
+        formEl.addEventListener('submit', () => {
+            if (visualPane.classList.contains('active')) mdField.value = serialize();
+        });
+    }
+
+    // ----- ボタン -----
+    addDayBtn.addEventListener('click', () => {
+        daysContainer.appendChild(buildDay({ heading: '', rows: [] }));
+    });
+    rebuildBtn.addEventListener('click', rebuildFromDateRange);
+
+    // ----- 初期化 -----
+    rebuildVisualFromMd();
 })();
 </script>
 {% endblock %}
