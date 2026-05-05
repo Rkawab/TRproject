@@ -29,6 +29,11 @@ class TripAdmin(admin.ModelAdmin):
     )
     list_filter = ("status",)
     search_fields = ("name", "destination", "theme")
+    fields = (
+        "name", "destination", "start_date", "end_date",
+        "theme", "status", "summary", "md_plan",
+        "best_shot", "best_shot_caption",
+    )
     inlines = [PackingItemInline, MemoryNoteInline]
 
 

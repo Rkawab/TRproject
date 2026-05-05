@@ -88,6 +88,27 @@
     </div>
     {% endif %}
 
+    <!-- ベストショット -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold">📸 ベストショット</span>
+            <a href="{% url 'trips:best_shot_edit' trip.pk %}" class="btn btn-outline-primary btn-sm">編集</a>
+        </div>
+        <div class="card-body">
+            {% if trip.best_shot %}
+            <div class="text-center">
+                <img src="{{ trip.best_shot.url }}" alt="ベストショット"
+                     class="img-fluid rounded shadow-sm" style="max-height: 480px;">
+            </div>
+            {% if trip.best_shot_caption %}
+            <p class="text-center fst-italic mt-3 mb-0">「{{ trip.best_shot_caption }}」</p>
+            {% endif %}
+            {% else %}
+            <p class="text-muted mb-0">この旅行のベストショットはまだありません。1枚だけ写真とコメントを残せます。</p>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- 旅行計画（Markdownプレビュー） -->
     <div class="card mb-3 shadow-sm">
         <div class="card-header d-flex justify-content-between align-items-center">

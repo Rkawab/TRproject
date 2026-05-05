@@ -39,6 +39,12 @@ class Trip(models.Model):
     )
     summary = models.TextField(blank=True, verbose_name="概要メモ")
     md_plan = models.TextField(blank=True, verbose_name="旅行計画（Markdown）")
+    best_shot = models.ImageField(
+        upload_to="best_shots/", blank=True, null=True, verbose_name="ベストショット"
+    )
+    best_shot_caption = models.CharField(
+        max_length=200, blank=True, verbose_name="ベストショットの一言"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

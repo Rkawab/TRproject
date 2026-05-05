@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+    <h2>{{ title }}</h2>
+    <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary btn-sm">← 詳細へ戻る</a>
+</div>
+<p class="text-muted small">旅行: <strong>{{ trip.name }}</strong></p>
+
+<form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header fw-bold">📸 ベストショット</div>
+        <div class="card-body">
+            <div class="text-muted small mb-3">
+                この旅行で一番印象に残った写真を1枚選んで、一言コメントを添えてください。
+            </div>
+
+            {% if trip.best_shot %}
+            <div class="mb-3">
+                <p class="mb-1 small text-muted">現在の写真</p>
+                <img src="{{ trip.best_shot.url }}" alt="ベストショット"
+                     class="img-fluid rounded shadow-sm" style="max-height: 320px;">
+            </div>
+            {% endif %}
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">写真</label>
+                {% render_field form.best_shot %}
+                {% if form.best_shot.errors %}
+                <div class="text-danger small">{{ form.best_shot.errors|striptags }}</div>
+                {% endif %}
+                <div class="form-text">既に写真がある場合、新しい写真を選ぶと差し替わります。「Clear」にチェックすると削除されます。</div>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label fw-bold">一言コメント</label>
+                {% render_field form.best_shot_caption %}
+                {% if form.best_shot_caption.errors %}
+                <div class="text-danger small">{{ form.best_shot_caption.errors|striptags }}</div>
+                {% endif %}
+                <div class="form-text">200文字まで。</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-4">
+        <button type="submit" class="btn btn-primary px-4">保存</button>
+        <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary">キャンセル</a>
+    </div>
+</form>
+{% endblock %}

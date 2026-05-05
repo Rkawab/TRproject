@@ -51,6 +51,24 @@ class TripForm(forms.ModelForm):
         return cleaned
 
 
+class BestShotForm(forms.ModelForm):
+    """ベストショット（写真1枚＋一言コメント）専用フォーム"""
+    class Meta:
+        model = Trip
+        fields = ["best_shot", "best_shot_caption"]
+        widgets = {
+            "best_shot": forms.ClearableFileInput(attrs={
+                "class": "form-control",
+                "accept": "image/*",
+            }),
+            "best_shot_caption": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "例: 真栄田岬で撮った夕日",
+                "maxlength": 200,
+            }),
+        }
+
+
 class TripPlanForm(forms.ModelForm):
     """旅行計画（Markdown）専用フォーム"""
     class Meta:

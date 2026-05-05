@@ -16,6 +16,7 @@ from .ai_service import (
     suggest_titles,
 )
 from .forms import (
+    BestShotForm,
     MemoryJournalForm,
     MemoryNoteFormSet,
     PackingItemFormSet,
@@ -169,6 +170,26 @@ def memory_edit(request, pk):
         "journal_form": journal_form,
         "trip": trip,
         "title": "思い出を編集",
+    })
+
+
+@login_required
+def best_shot_edit(request, pk):
+    """ベストショット（写真1枚＋一言コメント）の編集。"""
+    trip = get_object_or_404(Trip, pk=pk)
+    if request.method == "POST":
+        form = BestShotForm(request.POST, request.FILES, instance=trip)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "ベストショットを保存しました。")
+            return redirect("trips:detail", pk=trip.pk)
+        messages.error(request, "保存に失敗しました。")
+    else:
+        form = BestShotForm(instance=trip)
+    return render(request, "trips/best_shot_form.html", {
+        "form": form,
+        "trip": trip,
+        "title": "ベストショットを編集",
     })
 
 

@@ -12,6 +12,7 @@ urlpatterns = [
     path("<int:pk>/packing/edit/", views.packing_edit, name="packing_edit"),
     path("<int:pk>/memory/edit/", views.memory_edit, name="memory_edit"),
     path("<int:pk>/plan/edit/", views.trip_plan_edit, name="plan_edit"),
+    path("<int:pk>/best-shot/edit/", views.best_shot_edit, name="best_shot_edit"),
     # AI 機能（POSTのみ・JSON応答）
     path("<int:pk>/ai/packing/", views.ai_packing, name="ai_packing"),
     path("<int:pk>/ai/questions/", views.ai_questions, name="ai_questions"),
