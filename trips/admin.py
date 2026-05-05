@@ -27,13 +27,14 @@ class TripAdmin(admin.ModelAdmin):
     list_display = (
         "name", "destination", "start_date", "end_date", "status", "created_at",
     )
-    list_filter = ("status",)
+    list_filter = ("status", "users")
     search_fields = ("name", "destination", "theme")
     fields = (
         "name", "destination", "start_date", "end_date",
         "theme", "status", "summary", "md_plan",
-        "best_shot", "best_shot_caption",
+        "best_shot", "best_shot_caption", "users",
     )
+    filter_horizontal = ("users",)
     inlines = [PackingItemInline, MemoryNoteInline]
 
 

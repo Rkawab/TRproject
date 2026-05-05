@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -38,6 +39,12 @@ class Trip(models.Model):
         max_length=20, choices=STATUS_CHOICES, default="planning", verbose_name="ステータス"
     )
     summary = models.TextField(blank=True, verbose_name="概要メモ")
+    users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="trips",
+        blank=True,
+        verbose_name="参加者",
+    )
     md_plan = models.TextField(blank=True, verbose_name="旅行計画（Markdown）")
     best_shot = models.ImageField(
         upload_to="best_shots/", blank=True, null=True, verbose_name="ベストショット"

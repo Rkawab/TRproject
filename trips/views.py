@@ -1,12 +1,16 @@
 import logging
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+
+User = get_user_model()
 
 from .ai_service import (
     AIServiceError,
@@ -16,12 +20,11 @@ from .ai_service import (
     suggest_titles,
 )
 from .forms import (
-    BestShotForm,
     MemoryJournalForm,
     MemoryNoteFormSet,
     PackingItemFormSet,
-    TripForm,
-    TripPlanForm,
+    TripAlbumForm,
+    TripShioriForm,
 )
 from .models import (
     PACKING_CATEGORY_CHOICES,
@@ -36,37 +39,55 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def trip_list(request):
-    trips = Trip.objects.all()
+    trips = Trip.objects.all().prefetch_related("users")
 
     query = request.GET.get("q", "").strip()
     status = request.GET.get("status", "")
+    user_id = request.GET.get("user", "")
 
     if query:
         trips = trips.filter(Q(name__icontains=query) | Q(destination__icontains=query))
     if status:
         trips = trips.filter(status=status)
+    if user_id:
+        trips = trips.filter(users__id=user_id).distinct()
+
+    user_choices = User.objects.filter(is_superuser=False, is_active=True).order_by("username")
 
     return render(request, "trips/list.html", {
         "trips": trips,
         "query": query,
         "status": status,
         "status_choices": STATUS_CHOICES,
+        "user_choices": user_choices,
+        "selected_user": user_id,
     })
 
 
 @login_required
 def trip_create(request):
+    """新規作成も「旅のしおり」フォーム（基本情報 + 計画 + 準備リスト）で行う。"""
     if request.method == "POST":
-        form = TripForm(request.POST)
-        if form.is_valid():
-            trip = form.save()
+        form = TripShioriForm(request.POST)
+        # formset は保存前は instance=Trip() で受けて検証する
+        packing_formset = PackingItemFormSet(request.POST, instance=Trip())
+        if form.is_valid() and packing_formset.is_valid():
+            with transaction.atomic():
+                trip = form.save()
+                packing_formset.instance = trip
+                packing_formset.save()
             messages.success(request, f"「{trip.name}」を登録しました。")
             return redirect("trips:detail", pk=trip.pk)
         messages.error(request, "入力内容にエラーがあります。赤字部分をご確認ください。")
     else:
-        form = TripForm()
-    return render(request, "trips/form.html", {
+        initial = {}
+        if request.user.is_authenticated and not request.user.is_superuser:
+            initial["users"] = [request.user.pk]
+        form = TripShioriForm(initial=initial)
+        packing_formset = PackingItemFormSet(instance=Trip())
+    return render(request, "trips/shiori_form.html", {
         "form": form,
+        "packing_formset": packing_formset,
         "title": "旅行を新規作成",
     })
 
@@ -74,7 +95,7 @@ def trip_create(request):
 @login_required
 def trip_detail(request, pk):
     trip = get_object_or_404(
-        Trip.objects.prefetch_related("packing_items", "memory_notes"),
+        Trip.objects.prefetch_related("packing_items", "memory_notes", "users"),
         pk=pk,
     )
     memory = getattr(trip, "memory", None)
@@ -98,25 +119,6 @@ def trip_detail(request, pk):
 
 
 @login_required
-def trip_edit(request, pk):
-    trip = get_object_or_404(Trip, pk=pk)
-    if request.method == "POST":
-        form = TripForm(request.POST, instance=trip)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f"「{trip.name}」を更新しました。")
-            return redirect("trips:detail", pk=trip.pk)
-        messages.error(request, "入力内容にエラーがあります。")
-    else:
-        form = TripForm(instance=trip)
-    return render(request, "trips/form.html", {
-        "form": form,
-        "title": "旅行を編集",
-        "trip": trip,
-    })
-
-
-@login_required
 def trip_delete(request, pk):
     trip = get_object_or_404(Trip, pk=pk)
     if request.method == "POST":
@@ -128,88 +130,59 @@ def trip_delete(request, pk):
 
 
 @login_required
-def packing_edit(request, pk):
+def shiori_edit(request, pk):
+    """旅のしおり（旅行前情報）: 基本情報 + 旅行計画 + 準備リストを1画面で編集。"""
     trip = get_object_or_404(Trip, pk=pk)
     if request.method == "POST":
-        formset = PackingItemFormSet(request.POST, instance=trip)
-        if formset.is_valid():
-            formset.save()
-            messages.success(request, "保存しました。")
+        form = TripShioriForm(request.POST, instance=trip)
+        packing_formset = PackingItemFormSet(request.POST, instance=trip)
+        if form.is_valid() and packing_formset.is_valid():
+            with transaction.atomic():
+                form.save()
+                packing_formset.save()
+            messages.success(request, "旅のしおりを保存しました。")
             return redirect("trips:detail", pk=trip.pk)
         messages.error(request, "入力内容にエラーがあります。")
     else:
-        formset = PackingItemFormSet(instance=trip)
-    return render(request, "trips/packing_form.html", {
+        form = TripShioriForm(instance=trip)
+        packing_formset = PackingItemFormSet(instance=trip)
+    return render(request, "trips/shiori_form.html", {
+        "form": form,
+        "packing_formset": packing_formset,
         "trip": trip,
-        "formset": formset,
-        "title": "準備リストを編集",
+        "title": "旅のしおりを編集",
     })
 
 
 @login_required
-def memory_edit(request, pk):
-    """思い出メモ（箇条書き）と旅行記の編集。"""
+def album_edit(request, pk):
+    """旅のアルバム（旅行後情報）: ベストショット + 思い出メモ + 旅行記本文を1画面で編集。"""
     trip = get_object_or_404(Trip, pk=pk)
     memory, _ = MemoryEntry.objects.get_or_create(trip=trip)
 
     if request.method == "POST":
-        formset = MemoryNoteFormSet(request.POST, instance=trip)
+        form = TripAlbumForm(request.POST, request.FILES, instance=trip)
+        memory_formset = MemoryNoteFormSet(request.POST, instance=trip)
         journal_form = MemoryJournalForm(request.POST, instance=memory)
-        if formset.is_valid() and journal_form.is_valid():
-            formset.save()
-            journal_form.save()
-            messages.success(request, "思い出を保存しました。")
+        if form.is_valid() and memory_formset.is_valid() and journal_form.is_valid():
+            with transaction.atomic():
+                form.save()
+                memory_formset.save()
+                journal_form.save()
+            messages.success(request, "旅のアルバムを保存しました。")
             return redirect("trips:detail", pk=trip.pk)
         messages.error(request, "入力内容にエラーがあります。")
     else:
-        formset = MemoryNoteFormSet(instance=trip)
+        form = TripAlbumForm(instance=trip)
+        memory_formset = MemoryNoteFormSet(instance=trip)
         journal_form = MemoryJournalForm(instance=memory)
 
-    return render(request, "trips/memory_form.html", {
-        "formset": formset,
+    return render(request, "trips/album_form.html", {
+        "form": form,
+        "memory_formset": memory_formset,
         "journal_form": journal_form,
         "trip": trip,
-        "title": "思い出を編集",
-    })
-
-
-@login_required
-def best_shot_edit(request, pk):
-    """ベストショット（写真1枚＋一言コメント）の編集。"""
-    trip = get_object_or_404(Trip, pk=pk)
-    if request.method == "POST":
-        form = BestShotForm(request.POST, request.FILES, instance=trip)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "ベストショットを保存しました。")
-            return redirect("trips:detail", pk=trip.pk)
-        messages.error(request, "保存に失敗しました。")
-    else:
-        form = BestShotForm(instance=trip)
-    return render(request, "trips/best_shot_form.html", {
-        "form": form,
-        "trip": trip,
-        "title": "ベストショットを編集",
-    })
-
-
-@login_required
-def trip_plan_edit(request, pk):
-    """旅行計画（Markdown）の編集。"""
-    trip = get_object_or_404(Trip, pk=pk)
-    if request.method == "POST":
-        form = TripPlanForm(request.POST, instance=trip)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "旅行計画を保存しました。")
-            return redirect("trips:detail", pk=trip.pk)
-        messages.error(request, "保存に失敗しました。")
-    else:
-        form = TripPlanForm(instance=trip)
-    return render(request, "trips/plan_form.html", {
-        "form": form,
-        "trip": trip,
-        "title": "旅行計画を編集",
+        "title": "旅のアルバムを編集",
     })
 
 
@@ -281,7 +254,7 @@ def ai_journal(request, pk):
 
     return JsonResponse({
         "journal": journal,
-        "redirect": reverse("trips:memory_edit", args=[trip.pk]),
+        "redirect": reverse("trips:album_edit", args=[trip.pk]),
     })
 
 

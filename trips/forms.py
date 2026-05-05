@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth import get_user_model
 from django.forms import inlineformset_factory
 
 from .models import (
@@ -9,12 +10,30 @@ from .models import (
 )
 
 
-class TripForm(forms.ModelForm):
+User = get_user_model()
+
+
+class UserChoiceField(forms.ModelMultipleChoiceField):
+    """参加者選択用。username だけを表示する。"""
+    def label_from_instance(self, obj):
+        return obj.username
+
+
+class TripShioriForm(forms.ModelForm):
+    """旅のしおり（旅行前情報）: 基本情報 + 旅行計画"""
+
+    users = UserChoiceField(
+        queryset=User.objects.filter(is_superuser=False, is_active=True).order_by("username"),
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        required=True,
+        label="参加者",
+    )
+
     class Meta:
         model = Trip
         fields = [
             "name", "destination", "start_date", "end_date",
-            "theme", "status", "summary",
+            "theme", "status", "summary", "md_plan", "users",
         ]
         widgets = {
             "name": forms.TextInput(attrs={
@@ -40,6 +59,11 @@ class TripForm(forms.ModelForm):
                 "class": "form-control", "rows": 3,
                 "placeholder": "自由メモ",
             }),
+            "md_plan": forms.Textarea(attrs={
+                "class": "form-control font-monospace",
+                "rows": 20,
+                "placeholder": "# 旅行計画\n\n## 1日目\n- 10:00 那覇空港着\n- ...",
+            }),
         }
 
     def clean(self):
@@ -51,8 +75,8 @@ class TripForm(forms.ModelForm):
         return cleaned
 
 
-class BestShotForm(forms.ModelForm):
-    """ベストショット（写真1枚＋一言コメント）専用フォーム"""
+class TripAlbumForm(forms.ModelForm):
+    """旅のアルバム（旅行後情報）: ベストショット部分"""
     class Meta:
         model = Trip
         fields = ["best_shot", "best_shot_caption"]
@@ -65,20 +89,6 @@ class BestShotForm(forms.ModelForm):
                 "class": "form-control",
                 "placeholder": "例: 真栄田岬で撮った夕日",
                 "maxlength": 200,
-            }),
-        }
-
-
-class TripPlanForm(forms.ModelForm):
-    """旅行計画（Markdown）専用フォーム"""
-    class Meta:
-        model = Trip
-        fields = ["md_plan"]
-        widgets = {
-            "md_plan": forms.Textarea(attrs={
-                "class": "form-control font-monospace",
-                "rows": 30,
-                "placeholder": "# 旅行計画\n\n## 1日目\n- 10:00 那覇空港着\n- ...",
             }),
         }
 

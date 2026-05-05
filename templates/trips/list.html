@@ -9,7 +9,7 @@
 
 <!-- 検索・絞り込み -->
 <form method="GET" class="row g-2 mb-4">
-    <div class="col-12 col-md-5">
+    <div class="col-12 col-md-4">
         <input type="text" name="q" value="{{ query }}" class="form-control"
                placeholder="旅行名・行き先で検索">
     </div>
@@ -21,12 +21,20 @@
             {% endfor %}
         </select>
     </div>
-    <div class="col-5 col-md-2">
-        <button type="submit" class="btn btn-outline-secondary w-100">絞り込み</button>
+    <div class="col-7 col-md-3">
+        <select name="user" class="form-select">
+            <option value="">ユーザー すべて</option>
+            {% for u in user_choices %}
+            <option value="{{ u.id }}" {% if selected_user == u.id|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>
+            {% endfor %}
+        </select>
     </div>
-    {% if query or status %}
-    <div class="col-12 col-md-2">
-        <a href="{% url 'trips:list' %}" class="btn btn-outline-danger w-100">リセット</a>
+    <div class="col-5 col-md-1">
+        <button type="submit" class="btn btn-outline-secondary w-100">絞込</button>
+    </div>
+    {% if query or status or selected_user %}
+    <div class="col-12 col-md-1">
+        <a href="{% url 'trips:list' %}" class="btn btn-outline-danger w-100">×</a>
     </div>
     {% endif %}
 </form>
@@ -55,7 +63,12 @@
                     </p>
                     {% endif %}
                     {% if trip.theme %}
-                    <p class="card-text small text-muted mb-0">🏷️ {{ trip.theme }}</p>
+                    <p class="card-text small text-muted mb-1">🏷️ {{ trip.theme }}</p>
+                    {% endif %}
+                    {% if trip.users.all %}
+                    <p class="card-text small text-muted mb-0">
+                        👥 {% for u in trip.users.all %}{{ u.username }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                    </p>
                     {% endif %}
                 </div>
             </div>
