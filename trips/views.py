@@ -29,10 +29,16 @@ from .forms import (
 from .models import (
     PACKING_CATEGORY_CHOICES,
     STATUS_CHOICES,
+    Kind,
     MemoryEntry,
     PackingItem,
     Trip,
 )
+
+
+def _kind_choices():
+    """ビジュアル編集の <select> 用に種別を並べたリスト。"""
+    return [k.display for k in Kind.objects.all()]
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +95,7 @@ def trip_create(request):
         "form": form,
         "packing_formset": packing_formset,
         "title": "旅行を新規作成",
+        "kind_choices": _kind_choices(),
     })
 
 
@@ -151,6 +158,7 @@ def shiori_edit(request, pk):
         "packing_formset": packing_formset,
         "trip": trip,
         "title": "旅のしおりを編集",
+        "kind_choices": _kind_choices(),
     })
 
 

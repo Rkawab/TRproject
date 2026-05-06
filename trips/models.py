@@ -73,6 +73,27 @@ class Trip(models.Model):
         return dict(STATUS_CHOICES).get(self.status, self.status)
 
 
+class Kind(models.Model):
+    """行程表の「種別」マスタ。管理画面から自由に追加削除できる。"""
+    emoji = models.CharField(max_length=10, blank=True, verbose_name="絵文字")
+    label = models.CharField(max_length=50, verbose_name="ラベル")
+    order = models.IntegerField(default=0, verbose_name="表示順")
+
+    class Meta:
+        db_table = "kind"
+        ordering = ["order", "id"]
+        unique_together = [("emoji", "label")]
+        verbose_name = "種別"
+        verbose_name_plural = "種別"
+
+    def __str__(self):
+        return f"{self.emoji}{self.label}"
+
+    @property
+    def display(self):
+        return f"{self.emoji}{self.label}"
+
+
 class PackingItem(models.Model):
     """準備リスト（持ち物・予約確認・事前購入・調べること・家を出る前にやること）"""
     trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name="packing_items")

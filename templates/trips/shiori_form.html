@@ -145,13 +145,13 @@
                             <table class="table table-sm table-bordered align-middle plan-row-table mb-2">
                                 <thead class="table-light">
                                     <tr>
-                                        <th style="width:15%">時間</th>
+                                        <th style="width:18%">時間</th>
                                         <th>内容</th>
-                                        <th style="width:8%" class="text-center"
+                                        <th style="width:6%" class="text-center"
                                             title="ONで **強調** として保存">重要</th>
-                                        <th style="width:16%">種別</th>
+                                        <th style="width:14%">種別</th>
                                         <th style="width:22%">メモ</th>
-                                        <th style="width:40px"></th>
+                                        <th style="width:36px"></th>
                                     </tr>
                                 </thead>
                                 <tbody class="plan-rows"></tbody>
@@ -167,32 +167,35 @@
             <!-- 行 テンプレート -->
             <template id="plan-row-tpl">
                 <tr class="plan-row">
-                    <td><input type="text" class="form-control form-control-sm plan-time"
-                            placeholder="13:00–15:00"></td>
-                    <td><input type="text" class="form-control form-control-sm plan-content"
+                    <td data-label="時間">
+                        <div class="d-flex align-items-center gap-1 plan-time-wrap">
+                            <input type="time" step="300"
+                                class="form-control form-control-sm plan-time-start" aria-label="開始時刻">
+                            <span class="text-muted small">–</span>
+                            <input type="time" step="300"
+                                class="form-control form-control-sm plan-time-end" aria-label="終了時刻（任意）">
+                        </div>
+                    </td>
+                    <td data-label="内容"><input type="text" class="form-control form-control-sm plan-content"
                             placeholder="例: クリアSUP（長間海岸）"></td>
-                    <td class="text-center">
+                    <td data-label="重要" class="text-center plan-important-cell">
                         <input type="checkbox" class="form-check-input plan-important">
                     </td>
-                    <td><input type="text" class="form-control form-control-sm plan-kind"
-                            list="plan-kind-list" placeholder="🚗移動 など"></td>
-                    <td><input type="text" class="form-control form-control-sm plan-memo"
+                    <td data-label="種別">
+                        <select class="form-select form-select-sm plan-kind">
+                            <option value="">（種別なし）</option>
+                        </select>
+                    </td>
+                    <td data-label="メモ"><input type="text" class="form-control form-control-sm plan-memo"
                             placeholder="メモ"></td>
-                    <td class="text-center">
+                    <td class="text-center plan-remove-cell">
                         <button type="button" class="btn btn-sm btn-outline-danger plan-remove-row p-0 lh-1"
                             style="width:28px;">✕</button>
                     </td>
                 </tr>
             </template>
 
-            <datalist id="plan-kind-list">
-                <option value="🚶移動"><option value="🚃移動"><option value="🚗移動">
-                <option value="✈️移動"><option value="🚗送迎"><option value="⛑️移動">
-                <option value="🍽️食事"><option value="🍻食事"><option value="🍙食事">
-                <option value="🤿海に入る"><option value="🏄‍♀️体験"><option value="🚶散歩">
-                <option value="💤休憩"><option value="🛍️休憩">
-                <option value="⛑️準備"><option value="⛑️手続き"><option value="🏠到着">
-            </datalist>
+            {{ kind_choices|json_script:"plan-kind-data" }}
         </div>
     </div>
 
@@ -402,7 +405,61 @@
         let content = contentRaw, important = false;
         const m = contentRaw.match(/^\*\*(.+)\*\*$/);
         if (m) { content = m[1]; important = true; }
-        return { time, content, important, kind, memo };
+        const { start, end } = parseTimeRange(time);
+        return { start, end, content, important, kind, memo };
+    }
+
+    // 時間文字列(例: "13:00–15:00", "13:00", "13:00-15:00", "13:00〜15:00") → {start, end}
+    function parseTimeRange(s) {
+        const raw = (s || '').trim();
+        if (!raw) return { start: '', end: '' };
+        const parts = raw.split(/[–~〜\-]/).map(x => x.trim());
+        return {
+            start: normalizeTime(parts[0] || ''),
+            end: normalizeTime(parts[1] || ''),
+        };
+    }
+
+    // "9:5" → "09:05"、想定外なら空文字
+    function normalizeTime(t) {
+        const m = (t || '').match(/^(\d{1,2}):(\d{1,2})$/);
+        if (!m) return '';
+        const h = String(Math.min(23, parseInt(m[1], 10))).padStart(2, '0');
+        const mm = String(Math.min(59, parseInt(m[2], 10))).padStart(2, '0');
+        return `${h}:${mm}`;
+    }
+
+    function formatTimeRange(start, end) {
+        const s = (start || '').trim();
+        const e = (end || '').trim();
+        if (s && e) return `${s}–${e}`;
+        return s || e || '';
+    }
+
+    // ----- 種別の選択肢 -----
+    const kindDataEl = document.getElementById('plan-kind-data');
+    const kindChoices = kindDataEl ? JSON.parse(kindDataEl.textContent) : [];
+
+    function fillKindSelect(selectEl, currentValue) {
+        // 既存のoptionを「（種別なし）」だけ残してリセット
+        selectEl.innerHTML = '<option value="">（種別なし）</option>';
+        const seen = new Set();
+        kindChoices.forEach(v => {
+            if (!seen.has(v)) {
+                seen.add(v);
+                const opt = document.createElement('option');
+                opt.value = v; opt.textContent = v;
+                selectEl.appendChild(opt);
+            }
+        });
+        // 既存データに、マスタにない種別が含まれていた場合は失わないように追加
+        if (currentValue && !seen.has(currentValue)) {
+            const opt = document.createElement('option');
+            opt.value = currentValue;
+            opt.textContent = currentValue + '（マスタ未登録）';
+            selectEl.appendChild(opt);
+        }
+        selectEl.value = currentValue || '';
     }
 
     // ----- シリアライズ -----
@@ -421,7 +478,9 @@
                 out.push('| 時間 | 内容 | 種別 | メモ |');
                 out.push('| --- | --- | --- | --- |');
                 rows.forEach(tr => {
-                    const time = cellEscape(tr.querySelector('.plan-time').value);
+                    const start = tr.querySelector('.plan-time-start').value;
+                    const end = tr.querySelector('.plan-time-end').value;
+                    const time = cellEscape(formatTimeRange(start, end));
                     let content = cellEscape(tr.querySelector('.plan-content').value);
                     const important = tr.querySelector('.plan-important').checked;
                     const kind = cellEscape(tr.querySelector('.plan-kind').value);
@@ -465,10 +524,11 @@
 
     function buildRow(r) {
         const tr = rowTpl.content.firstElementChild.cloneNode(true);
-        tr.querySelector('.plan-time').value = r.time || '';
+        tr.querySelector('.plan-time-start').value = r.start || '';
+        tr.querySelector('.plan-time-end').value = r.end || '';
         tr.querySelector('.plan-content').value = r.content || '';
         tr.querySelector('.plan-important').checked = !!r.important;
-        tr.querySelector('.plan-kind').value = r.kind || '';
+        fillKindSelect(tr.querySelector('.plan-kind'), r.kind || '');
         tr.querySelector('.plan-memo').value = r.memo || '';
         tr.querySelector('.plan-remove-row').addEventListener('click', () => tr.remove());
         return tr;

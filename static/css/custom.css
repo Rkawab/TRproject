@@ -111,3 +111,70 @@ body {
         overflow-wrap: anywhere;
     }
 }
+
+/* === 旅行計画ビジュアル編集: 行テーブル === */
+.plan-row-table .plan-time-wrap {
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+.plan-row-table .plan-time-start,
+.plan-row-table .plan-time-end {
+    min-width: 0;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+}
+
+/* スマホ幅: テーブルをカード型に切り替えて全項目が見える状態にする */
+@media (max-width: 575.98px) {
+    .plan-row-table {
+        border: 0;
+    }
+    .plan-row-table thead {
+        display: none;
+    }
+    .plan-row-table,
+    .plan-row-table tbody,
+    .plan-row-table tr.plan-row,
+    .plan-row-table tr.plan-row td {
+        display: block;
+        width: 100%;
+    }
+    .plan-row-table tr.plan-row {
+        border: 1px solid #dee2e6;
+        border-radius: 0.4rem;
+        margin-bottom: 0.6rem;
+        padding: 0.4rem 0.5rem;
+        background: #fff;
+        position: relative;
+    }
+    .plan-row-table tr.plan-row td {
+        border: 0;
+        padding: 0.2rem 0;
+    }
+    .plan-row-table tr.plan-row td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.7rem;
+        color: #6c757d;
+        margin-bottom: 0.1rem;
+    }
+    .plan-row-table tr.plan-row td.plan-important-cell {
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .plan-row-table tr.plan-row td.plan-important-cell::before {
+        margin-bottom: 0;
+    }
+    .plan-row-table tr.plan-row td.plan-remove-cell {
+        position: absolute;
+        top: 0.3rem;
+        right: 0.3rem;
+        width: auto;
+        padding: 0;
+    }
+    .plan-row-table tr.plan-row td.plan-remove-cell::before {
+        display: none;
+    }
+}

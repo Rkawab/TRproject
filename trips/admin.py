@@ -6,7 +6,16 @@ from .models import (
     MemoryEntry,
     MemoryNote,
     AISuggestionLog,
+    Kind,
 )
+
+
+@admin.register(Kind)
+class KindAdmin(admin.ModelAdmin):
+    list_display = ("order", "emoji", "label")
+    list_editable = ("emoji", "label")
+    ordering = ("order", "id")
+    search_fields = ("label",)
 
 
 class PackingItemInline(admin.TabularInline):
