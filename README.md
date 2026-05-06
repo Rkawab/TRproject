@@ -158,7 +158,7 @@ location /travel/media/ {
 Raspberry Pi 4上で `/travel/` パスとして公開する構成。
 詳細手順は Obsidian保管庫の以下ノートを参照。
 
-- `03_Notes/03_プロジェクト記録/Webアプリ/旅行記録/RaspberryPi駆動化_3アプリ目.md`
+- `03_Notes/03_プロジェクト記録/Webアプリ/旅行記録/logs/deploy/RaspberryPi駆動化_3アプリ目.md`
 
 `git pull` 後の更新手順:
 
@@ -170,14 +170,3 @@ python manage.py collectstatic --noinput
 sudo systemctl restart trproject
 ```
 
----
-
-## 仕様書
-
-詳細仕様・実装ログは Obsidian保管庫を参照。
-
-- `001_初期仕様.md`
-- `002_段階1実装ログ.md`
-- `003_段階2-3実装ログ.md`
-- `004_段階4実装ログ.md`（Markdown計画 / 思い出メモ刷新 / 日程・当日メモ廃止）
-- `005_段階5実装ログ.md`（ベストショット機能の追加）

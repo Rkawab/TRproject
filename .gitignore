@@ -33,3 +33,6 @@ media/
 # macOS/Linux/Windows一時ファイル
 .DS_Store
 Thumbs.db
+
+# その他
+CLAUDE.md
