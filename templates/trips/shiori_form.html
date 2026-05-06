@@ -288,9 +288,31 @@
     const total = document.getElementById('id_packing_items-TOTAL_FORMS');
     const addBtn = document.getElementById('add-packing');
 
+    // 行の削除/追加後にフォームprefixを 0..n-1 に振り直し、TOTAL_FORMS も同期する。
+    // これをやらないと、DOMから消えたフォームのインデックスがTOTAL_FORMS内に残り、
+    // サーバー側で「空欄の幽霊フォーム」として必須エラーになる。
+    function renumber() {
+        const rows = formset.querySelectorAll('.packing-row');
+        rows.forEach(function (row, i) {
+            row.querySelectorAll('[name]').forEach(function (el) {
+                el.name = el.name.replace(/packing_items-\d+-/, 'packing_items-' + i + '-');
+            });
+            row.querySelectorAll('[id]').forEach(function (el) {
+                el.id = el.id.replace(/id_packing_items-\d+-/, 'id_packing_items-' + i + '-');
+            });
+            row.querySelectorAll('label[for]').forEach(function (el) {
+                el.htmlFor = el.htmlFor.replace(/id_packing_items-\d+-/, 'id_packing_items-' + i + '-');
+            });
+        });
+        total.value = rows.length;
+    }
+
     function bindRemove() {
         document.querySelectorAll('#packing-formset .remove-row').forEach(function (btn) {
-            btn.onclick = function () { btn.closest('.packing-row').remove(); };
+            btn.onclick = function () {
+                btn.closest('.packing-row').remove();
+                renumber();
+            };
         });
     }
 
