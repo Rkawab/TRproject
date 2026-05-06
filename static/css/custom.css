@@ -61,6 +61,7 @@ body {
     border: 1px solid #c9d1d9;
     border-collapse: collapse;
     font-size: 0.95rem;
+    table-layout: fixed;
 }
 
 .markdown-body th,
@@ -68,6 +69,7 @@ body {
     padding: 0.5rem 0.75rem;
     border: 1px solid #c9d1d9;
     vertical-align: top;
+    word-wrap: break-word;
 }
 
 .markdown-body th {
@@ -80,6 +82,16 @@ body {
     background-color: #f8fafc;
 }
 
+/* 行程表(4列: 時間 / 内容 / 種別 / メモ)の列幅 */
+.markdown-body td:nth-child(1),
+.markdown-body th:nth-child(1) { width: 15%; }
+.markdown-body td:nth-child(2),
+.markdown-body th:nth-child(2) { width: 45%; }
+.markdown-body td:nth-child(3),
+.markdown-body th:nth-child(3) { width: 15%; }
+.markdown-body td:nth-child(4),
+.markdown-body th:nth-child(4) { width: 25%; }
+
 .markdown-body td:first-child {
     white-space: nowrap;
 }
@@ -91,5 +103,11 @@ body {
 
     .markdown-body table {
         min-width: 42rem;
+    }
+
+    /* スマホでは時刻セルを折り返し可能にしてはみ出しを防ぐ */
+    .markdown-body td:first-child {
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 }

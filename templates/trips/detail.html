@@ -2,55 +2,6 @@
 {% load trips_extras %}
 {% block title %}{{ trip.name }}{% endblock %}
 
-{% block extra_head %}
-<style>
-    .markdown-body {
-        line-height: 1.65;
-    }
-
-    .markdown-body table {
-        display: table;
-        width: 100%;
-        margin: 1rem 0;
-        overflow: visible;
-        border: 1px solid #c9d1d9;
-        border-collapse: collapse;
-        font-size: 0.95rem;
-    }
-
-    .markdown-body th,
-    .markdown-body td {
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #c9d1d9;
-        vertical-align: top;
-    }
-
-    .markdown-body th {
-        background-color: #f1f5f9;
-        font-weight: 700;
-        white-space: nowrap;
-    }
-
-    .markdown-body tr:nth-child(even) td {
-        background-color: #f8fafc;
-    }
-
-    .markdown-body td:first-child {
-        white-space: nowrap;
-    }
-
-    @media (max-width: 768px) {
-        .markdown-body {
-            overflow-x: auto;
-        }
-
-        .markdown-body table {
-            min-width: 42rem;
-        }
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="mt-3">
 
