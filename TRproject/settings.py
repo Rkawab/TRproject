@@ -112,9 +112,12 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# 写真機能（将来実装）用
+# 写真機能用（ベストショット等）
+# 本番(chaproject)は /travel/ 配下で動くため、他アプリと衝突しないよう
+# MEDIA_URL もプレフィックス付きにする。Nginx 側で /travel/media/ を
+# /opt/TRproject/media/ にマップする設定が必要。
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-MEDIA_URL = "/media/"
+MEDIA_URL = "/travel/media/"
 
 
 # カスタムユーザーモデル
