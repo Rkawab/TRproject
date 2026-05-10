@@ -56,8 +56,13 @@
                 {% if form.themes.errors %}<div class="text-danger small">{{ form.themes.errors|striptags }}</div>{% endif %}
             </div>
             <div class="mb-3">
-                <label class="form-label">{{ form.status.label }} <span class="text-danger">*</span></label>
-                {% render_field form.status %}
+                <div class="form-check">
+                    {% render_field form.is_cancelled %}
+                    <label class="form-check-label text-danger fw-bold" for="{{ form.is_cancelled.id_for_label }}">
+                        中止にする
+                    </label>
+                </div>
+                <div class="form-text text-muted">チェックすると旅行日に関わらず「中止」として扱われます。</div>
             </div>
             <div class="mb-3">
                 <label class="form-label">{{ form.summary.label }}</label>

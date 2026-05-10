@@ -1,13 +1,13 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 STATUS_CHOICES = [
-    ("planning", "計画中"),
     ("preparing", "準備中"),
     ("ongoing", "旅行中"),
-    ("organizing", "思い出整理中"),
     ("done", "完了"),
+    ("cancelled", "中止"),
 ]
 
 
@@ -32,9 +32,7 @@ class Trip(models.Model):
         blank=True,
         verbose_name="テーマ",
     )
-    status = models.CharField(
-        max_length=20, choices=STATUS_CHOICES, default="planning", verbose_name="ステータス"
-    )
+    is_cancelled = models.BooleanField(default=False, verbose_name="中止")
     summary = models.TextField(blank=True, verbose_name="概要メモ")
     users = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
@@ -65,6 +63,19 @@ class Trip(models.Model):
         if self.start_date and self.end_date:
             return (self.end_date - self.start_date).days + 1
         return None
+
+    @property
+    def status(self):
+        if self.is_cancelled:
+            return "cancelled"
+        today = timezone.localdate()
+        if self.start_date is None:
+            return "preparing"
+        if today < self.start_date:
+            return "preparing"
+        if self.end_date is None or today <= self.end_date:
+            return "ongoing"
+        return "done"
 
     @property
     def status_label(self):

@@ -46,7 +46,7 @@ class TripShioriForm(forms.ModelForm):
         model = Trip
         fields = [
             "name", "destination", "start_date", "end_date",
-            "themes", "status", "summary", "md_plan", "md_packing", "users",
+            "themes", "is_cancelled", "summary", "md_plan", "md_packing", "users",
         ]
         widgets = {
             "name": forms.TextInput(attrs={
@@ -63,7 +63,7 @@ class TripShioriForm(forms.ModelForm):
             "end_date": forms.DateInput(attrs={
                 "class": "form-control", "type": "date",
             }),
-            "status": forms.Select(attrs={"class": "form-select"}),
+            "is_cancelled": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "summary": forms.Textarea(attrs={
                 "class": "form-control", "rows": 3,
                 "placeholder": "自由メモ",

@@ -52,7 +52,19 @@ def trip_list(request):
     if query:
         trips = trips.filter(Q(name__icontains=query) | Q(destination__icontains=query))
     if status:
-        trips = trips.filter(status=status)
+        today = timezone.localdate()
+        if status == "cancelled":
+            trips = trips.filter(is_cancelled=True)
+        elif status == "preparing":
+            trips = trips.filter(is_cancelled=False).filter(
+                Q(start_date__isnull=True) | Q(start_date__gt=today)
+            )
+        elif status == "ongoing":
+            trips = trips.filter(is_cancelled=False, start_date__lte=today).filter(
+                Q(end_date__isnull=True) | Q(end_date__gte=today)
+            )
+        elif status == "done":
+            trips = trips.filter(is_cancelled=False, end_date__lt=today)
     if user_id:
         trips = trips.filter(users__id=user_id).distinct()
 

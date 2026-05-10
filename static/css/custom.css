@@ -10,11 +10,10 @@ body {
 }
 
 /* 旅行ステータスのバッジ */
-.badge.bg-status-planning   { background-color: #6c757d !important; }
 .badge.bg-status-preparing  { background-color: #fd7e14 !important; }
 .badge.bg-status-ongoing    { background-color: #2a7ad6 !important; }
-.badge.bg-status-organizing { background-color: #6f42c1 !important; }
 .badge.bg-status-done       { background-color: #198754 !important; }
+.badge.bg-status-cancelled  { background-color: #6c757d !important; }
 
 /* 旅行カード */
 .trip-card {

@@ -36,13 +36,13 @@ class MemoryNoteInline(admin.TabularInline):
 @admin.register(Trip)
 class TripAdmin(admin.ModelAdmin):
     list_display = (
-        "name", "destination", "start_date", "end_date", "status", "created_at",
+        "name", "destination", "start_date", "end_date", "is_cancelled", "created_at",
     )
-    list_filter = ("status", "users", "themes")
+    list_filter = ("is_cancelled", "users", "themes")
     search_fields = ("name", "destination")
     fields = (
         "name", "destination", "start_date", "end_date",
-        "themes", "status", "summary", "md_plan", "md_packing",
+        "themes", "is_cancelled", "summary", "md_plan", "md_packing",
         "best_shot", "best_shot_caption", "users",
     )
     filter_horizontal = ("users", "themes")
