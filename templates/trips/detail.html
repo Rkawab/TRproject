@@ -138,6 +138,44 @@
 
 {% block extra_js %}
 <script>
+// 旅行計画テーブル: 種別/メモ列の内容を「内容」セル内へ注入（CSSでスマホ時のみ表示）
+(function () {
+    document.querySelectorAll('.markdown-body table').forEach(function (table) {
+        var headerCells = table.querySelectorAll('thead th');
+        // 行程表（3列以上）を対象。準備リストのチェックリストは <ul> なので影響なし
+        if (headerCells.length < 3) return;
+
+        table.classList.add('itinerary-table');
+
+        table.querySelectorAll('tbody tr').forEach(function (row) {
+            var cells = row.children;
+            if (cells.length < 3) return;
+
+            var contentCell = cells[1];
+            var kindCell = cells[2];
+            var memoCell = cells.length >= 4 ? cells[3] : null;
+
+            var kindHtml = kindCell ? kindCell.innerHTML.trim() : '';
+            var memoHtml = memoCell ? memoCell.innerHTML.trim() : '';
+
+            if (kindHtml) {
+                // インライン版は絵文字のみ表示（先頭の絵文字クラスタを抽出）
+                var emojiMatch = kindHtml.match(/^(?:\p{Extended_Pictographic}(?:\u{FE0F})?(?:\u{200D}\p{Extended_Pictographic}(?:\u{FE0F})?)*)+/u);
+                var kindWrap = document.createElement('div');
+                kindWrap.className = 'itinerary-inline-kind';
+                kindWrap.innerHTML = emojiMatch ? emojiMatch[0] : kindHtml;
+                contentCell.appendChild(kindWrap);
+            }
+            if (memoHtml) {
+                var memoWrap = document.createElement('div');
+                memoWrap.className = 'itinerary-inline-memo text-muted small';
+                memoWrap.innerHTML = memoHtml;
+                contentCell.appendChild(memoWrap);
+            }
+        });
+    });
+})();
+
 (function () {
     var btn = document.getElementById("copy-url-btn");
     if (!btn) return;

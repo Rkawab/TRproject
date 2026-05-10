@@ -111,6 +111,65 @@ body {
     }
 }
 
+/* PCでは「内容セル内に注入した種別/メモのインラインコピー」は隠す */
+@media (min-width: 576px) {
+    .itinerary-inline-kind,
+    .itinerary-inline-memo {
+        display: none;
+    }
+}
+
+/* スマホ(≤sm): 行程表を 時間 + 内容 の2列に圧縮し、横スクロールを解消 */
+@media (max-width: 575.98px) {
+    .markdown-body {
+        overflow-x: visible;
+    }
+
+    .markdown-body table.itinerary-table {
+        min-width: 0;
+        width: 100%;
+        font-size: 0.95rem;
+        table-layout: fixed;
+    }
+
+    /* 種別・メモの元セルは非表示（内容セルに注入済み） */
+    .markdown-body table.itinerary-table th:nth-child(3),
+    .markdown-body table.itinerary-table td:nth-child(3),
+    .markdown-body table.itinerary-table th:nth-child(4),
+    .markdown-body table.itinerary-table td:nth-child(4) {
+        display: none;
+    }
+
+    .markdown-body table.itinerary-table th:nth-child(1),
+    .markdown-body table.itinerary-table td:nth-child(1) {
+        width: 28%;
+    }
+    .markdown-body table.itinerary-table th:nth-child(2),
+    .markdown-body table.itinerary-table td:nth-child(2) {
+        width: 72%;
+    }
+
+    .markdown-body table.itinerary-table th,
+    .markdown-body table.itinerary-table td {
+        padding: 0.45rem 0.5rem;
+    }
+
+    .markdown-body .itinerary-inline-kind {
+        display: inline-block;
+        margin-top: 0.35rem;
+        padding: 0.05rem 0.45rem;
+        font-size: 0.82rem;
+        background: #eef2f7;
+        border-radius: 0.35rem;
+        line-height: 1.4;
+    }
+
+    .markdown-body .itinerary-inline-memo {
+        margin-top: 0.2rem;
+        line-height: 1.4;
+    }
+}
+
 /* === 旅行計画ビジュアル編集: 行テーブル === */
 .plan-row-table .plan-time-wrap {
     flex-wrap: nowrap;
