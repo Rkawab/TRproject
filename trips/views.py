@@ -251,6 +251,7 @@ def ai_shiori(request, pk=None):
             )
 
     kind_choices = [k.display for k in Kind.objects.all()]
+    logger.info("ai_shiori: targets=%s kind_choices=%s", targets, kind_choices)
 
     try:
         result = generate_shiori(
