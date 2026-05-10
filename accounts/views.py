@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib.auth.decorators import login_required
 
 
+@login_required
 def regist(request):
     regist_form = forms.RegistForm(request.POST or None)
     if regist_form.is_valid():
