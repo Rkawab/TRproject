@@ -68,7 +68,7 @@ def trip_list(request):
     if user_id:
         trips = trips.filter(users__id=user_id).distinct()
 
-    user_choices = User.objects.filter(is_superuser=False, is_active=True).order_by("username")
+    user_choices = User.objects.filter(is_superuser=False, is_active=True).exclude(username__icontains="ゲスト").order_by("username")
 
     return render(request, "trips/list.html", {
         "trips": trips,

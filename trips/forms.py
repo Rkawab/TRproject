@@ -29,7 +29,7 @@ class TripShioriForm(forms.ModelForm):
     """旅のしおり（旅行前情報）: 基本情報 + 旅行計画"""
 
     users = UserChoiceField(
-        queryset=User.objects.filter(is_superuser=False, is_active=True).order_by("username"),
+        queryset=User.objects.filter(is_superuser=False, is_active=True).exclude(username__icontains="ゲスト").order_by("username"),
         widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
         required=True,
         label="参加者",
