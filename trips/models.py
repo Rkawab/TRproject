@@ -25,6 +25,7 @@ AI_KIND_CHOICES = [
     ("question", "思い出整理の質問"),
     ("journal", "旅行記本文生成"),
     ("title", "タイトル案"),
+    ("shiori", "しおり一括生成"),
 ]
 
 

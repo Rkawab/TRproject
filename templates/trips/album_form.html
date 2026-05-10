@@ -14,11 +14,23 @@
 
     <!-- ベストショット -->
     <div class="card mb-3 shadow-sm">
-        <div class="card-header fw-bold">📸 ベストショット</div>
+        <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+            <span>📸 ベストショット</span>
+            <button type="button" id="ai-titles-btn" class="btn btn-outline-info btn-sm">
+                🤖 タイトル案
+            </button>
+        </div>
         <div class="card-body">
             <div class="text-muted small mb-3">
                 この旅行で一番印象に残った写真を1枚選んで、一言コメントを添えてください。
             </div>
+
+            <div id="ai-titles-result" class="d-none mb-3"></div>
+            <div id="ai-titles-status" class="d-none mb-2">
+                <div class="spinner-border spinner-border-sm text-info me-1" role="status"></div>
+                <span class="text-muted small">AIがタイトル案を考えています…</span>
+            </div>
+            <div id="ai-titles-error" class="d-none alert alert-danger py-2 small mb-2"></div>
 
             {% if trip.best_shot %}
             <div class="mb-3">
@@ -50,12 +62,24 @@
 
     <!-- 思い出メモ（箇条書き） -->
     <div class="card mb-3 shadow-sm">
-        <div class="card-header fw-bold">💭 思い出メモ</div>
+        <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+            <span>💭 思い出メモ</span>
+            <button type="button" id="ai-questions-btn" class="btn btn-outline-info btn-sm">
+                🤖 振り返りの質問
+            </button>
+        </div>
         <div class="card-body">
             {{ memory_formset.management_form }}
             <div class="text-muted small mb-3">
                 良かったこと・悪かったこと・食べたもの・気づいたこと、なんでも1つずつ自由に追加してください。
             </div>
+
+            <div id="ai-questions-result" class="d-none mb-3"></div>
+            <div id="ai-questions-status" class="d-none mb-2">
+                <div class="spinner-border spinner-border-sm text-info me-1" role="status"></div>
+                <span class="text-muted small">AIが質問を考えています…</span>
+            </div>
+            <div id="ai-questions-error" class="d-none alert alert-danger py-2 small mb-2"></div>
 
             <div id="note-formset">
                 {% for f in memory_formset %}
@@ -183,6 +207,115 @@
             errorEl.classList.remove('d-none');
         }
     });
+
+    // --- 共通ユーティリティ ---
+    function escapeHTML(s) {
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    // --- AI 振り返り質問 ---
+    const qBtn = document.getElementById('ai-questions-btn');
+    const qStatus = document.getElementById('ai-questions-status');
+    const qError = document.getElementById('ai-questions-error');
+    const qResult = document.getElementById('ai-questions-result');
+
+    if (qBtn) {
+        qBtn.addEventListener('click', async () => {
+            qBtn.disabled = true;
+            qStatus.classList.remove('d-none');
+            qError.classList.add('d-none');
+            qResult.classList.add('d-none');
+            try {
+                const res = await fetch('{% url "trips:ai_questions" trip.pk %}', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                });
+                const data = await res.json();
+                qStatus.classList.add('d-none');
+                qBtn.disabled = false;
+                if (!res.ok) {
+                    qError.textContent = data.error || 'エラーが発生しました。';
+                    qError.classList.remove('d-none');
+                    return;
+                }
+                const items = (data.questions || []).map(q => `<li>${escapeHTML(q)}</li>`).join('');
+                qResult.innerHTML =
+                    `<div class="card border-info">` +
+                    `  <div class="card-header bg-info bg-opacity-10 fw-bold small">振り返りの質問</div>` +
+                    `  <div class="card-body small">` +
+                    `    <ol class="mb-0">${items}</ol>` +
+                    `    <div class="text-muted small mt-2">これらを参考に上の思い出メモを書き込んでください。</div>` +
+                    `  </div>` +
+                    `</div>`;
+                qResult.classList.remove('d-none');
+            } catch (e) {
+                qStatus.classList.add('d-none');
+                qBtn.disabled = false;
+                qError.textContent = '通信エラー: ' + e.message;
+                qError.classList.remove('d-none');
+            }
+        });
+    }
+
+    // --- AI タイトル案 ---
+    const tBtn = document.getElementById('ai-titles-btn');
+    const tStatus = document.getElementById('ai-titles-status');
+    const tError = document.getElementById('ai-titles-error');
+    const tResult = document.getElementById('ai-titles-result');
+
+    if (tBtn) {
+        tBtn.addEventListener('click', async () => {
+            tBtn.disabled = true;
+            tStatus.classList.remove('d-none');
+            tError.classList.add('d-none');
+            tResult.classList.add('d-none');
+            try {
+                const res = await fetch('{% url "trips:ai_titles" trip.pk %}', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                });
+                const data = await res.json();
+                tStatus.classList.add('d-none');
+                tBtn.disabled = false;
+                if (!res.ok) {
+                    tError.textContent = data.error || 'エラーが発生しました。';
+                    tError.classList.remove('d-none');
+                    return;
+                }
+                const items = (data.titles || []).map(t =>
+                    `<li class="d-flex justify-content-between align-items-center mb-1">` +
+                    `  <span>${escapeHTML(t)}</span>` +
+                    `  <button type="button" class="btn btn-outline-secondary btn-sm copy-title" data-title="${escapeHTML(t)}">コピー</button>` +
+                    `</li>`
+                ).join('');
+                tResult.innerHTML =
+                    `<div class="card border-info">` +
+                    `  <div class="card-header bg-info bg-opacity-10 fw-bold small">タイトル案</div>` +
+                    `  <div class="card-body small">` +
+                    `    <ul class="list-unstyled mb-0">${items}</ul>` +
+                    `    <div class="text-muted small mt-2">気に入ったタイトルは「旅のしおり編集」で旅行名に貼り付けてください。</div>` +
+                    `  </div>` +
+                    `</div>`;
+                tResult.classList.remove('d-none');
+                tResult.querySelectorAll('.copy-title').forEach(b => {
+                    b.addEventListener('click', () => {
+                        navigator.clipboard.writeText(b.dataset.title).then(() => {
+                            const orig = b.textContent;
+                            b.textContent = '✓ コピー済';
+                            setTimeout(() => b.textContent = orig, 1500);
+                        });
+                    });
+                });
+            } catch (e) {
+                tStatus.classList.add('d-none');
+                tBtn.disabled = false;
+                tError.textContent = '通信エラー: ' + e.message;
+                tError.classList.remove('d-none');
+            }
+        });
+    }
 })();
 </script>
 {% endblock %}

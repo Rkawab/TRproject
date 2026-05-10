@@ -72,6 +72,22 @@
         </div>
     </div>
 
+    <!-- AIで入力 -->
+    <div class="card mb-3 shadow-sm border-info">
+        <div class="card-header fw-bold bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+            <span>🤖 AIで入力</span>
+            <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#aiShioriModal">
+                AIで入力
+            </button>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-0">
+                旅行のイメージをテキストで伝えると、AIが「旅行計画」「準備リスト」を自動入力します。<br>
+                既に入力済みの基本情報（旅行名・行き先・日付など）も参考にされます。
+            </p>
+        </div>
+    </div>
+
     <!-- 旅行計画 -->
     <div class="card mb-3 shadow-sm">
         <div class="card-header fw-bold">🗺️ 旅行計画</div>
@@ -277,6 +293,70 @@
         {% endif %}
     </div>
 </form>
+
+<!-- AIで入力モーダル -->
+<div class="modal fade" id="aiShioriModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-info bg-opacity-10">
+                <h5 class="modal-title fw-bold">🤖 AIで入力</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">
+                    旅行のイメージや希望をテキストで入力してください。フォーム上の基本情報（旅行名・日付など）と合わせて AI に渡し、
+                    選択した項目を自動生成します。
+                </p>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold mb-1">生成する項目</label>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="ai-target-plan" value="plan" checked>
+                        <label class="form-check-label" for="ai-target-plan">🗺️ 旅行計画</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="ai-target-packing" value="packing" checked>
+                        <label class="form-check-label" for="ai-target-packing">🎒 準備リスト</label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold" for="ai-instructions">AIへの指示・希望</label>
+                    <textarea id="ai-instructions" class="form-control" rows="6"
+                        placeholder="例: 2泊3日の宮古島。シュノーケルとSUPメイン。海鮮居酒屋にも行きたい。羽田発で初日は午前出発。"></textarea>
+                    <div class="form-text">具体的に書くほど精度が上がります（行き先・希望のアクティビティ・移動手段など）。</div>
+                </div>
+
+                {% if trip %}
+                <div class="alert alert-warning small py-2 mb-3">
+                    ⚠️ 「旅行計画」を生成すると、現在の Markdown 旅行計画は <strong>上書き</strong> されます。<br>
+                    「準備リスト」は既存項目に <strong>追加</strong> されます（AI 側で重複は避けます）。
+                </div>
+                {% else %}
+                <div class="alert alert-warning small py-2 mb-3">
+                    ⚠️ 「旅行計画」を生成すると、現在入力中の Markdown は <strong>上書き</strong> されます。<br>
+                    「準備リスト」は現在の項目に <strong>追加</strong> されます。
+                </div>
+                {% endif %}
+
+                <div id="ai-shiori-status" class="d-none">
+                    <div class="spinner-border spinner-border-sm text-info me-1" role="status"></div>
+                    <span class="text-muted small">AIが考えています…（10〜40秒ほど）</span>
+                </div>
+                <div id="ai-shiori-error" class="d-none alert alert-danger py-2 small mt-2"></div>
+                <div id="ai-shiori-result" class="d-none alert alert-success py-2 small mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button type="button" id="ai-shiori-run" class="btn btn-info">生成する</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# CSRF トークン参照用（フォーム外からも JS で取れるように） #}
+<form style="display:none;" id="ai-csrf-form">{% csrf_token %}</form>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -316,13 +396,28 @@
         });
     }
 
-    addBtn.addEventListener('click', function () {
+    function addRow() {
         const idx = parseInt(total.value);
         const html = emptyTpl.innerHTML.replace(/__prefix__/g, idx);
         formset.insertAdjacentHTML('beforeend', html);
         total.value = idx + 1;
         bindRemove();
-    });
+        return formset.lastElementChild;
+    }
+
+    addBtn.addEventListener('click', addRow);
+
+    // AIモーダルから1行ずつ追加するための公開API
+    window.__addPackingRow = function (data) {
+        const row = addRow();
+        if (!row || !data) return;
+        const sel = row.querySelector('select[name$="-category"]');
+        if (sel) sel.value = data.category || 'belongings';
+        const nameInp = row.querySelector('input[name$="-name"]');
+        if (nameInp) nameInp.value = data.name || '';
+        const noteInp = row.querySelector('input[name$="-note"]');
+        if (noteInp) noteInp.value = data.note || '';
+    };
 
     bindRemove();
 })();
@@ -620,8 +715,123 @@
     });
     rebuildBtn.addEventListener('click', rebuildFromDateRange);
 
+    // AIモーダルから旅行計画 Markdown を反映するための公開API
+    window.__setPlanMarkdown = function (md) {
+        mdField.value = md || '';
+        // ビジュアルタブが開いていれば即再構築、Markdownタブが開いていれば次に開いた時に shown.bs.tab で再構築される
+        if (visualPane.classList.contains('active')) {
+            rebuildVisualFromMd();
+        }
+    };
+
     // ----- 初期化 -----
     rebuildVisualFromMd();
+})();
+
+// ===== AIで入力モーダル =====
+(function () {
+    const runBtn = document.getElementById('ai-shiori-run');
+    if (!runBtn) return;
+    const statusEl = document.getElementById('ai-shiori-status');
+    const errorEl = document.getElementById('ai-shiori-error');
+    const resultEl = document.getElementById('ai-shiori-result');
+    const instTa = document.getElementById('ai-instructions');
+    const planCb = document.getElementById('ai-target-plan');
+    const packingCb = document.getElementById('ai-target-packing');
+    const csrfInput = document.querySelector('#ai-csrf-form [name=csrfmiddlewaretoken]');
+    const csrfToken = csrfInput ? csrfInput.value : '';
+
+    {% if trip %}
+    const aiUrl = '{% url "trips:ai_shiori" trip.pk %}';
+    {% else %}
+    const aiUrl = '{% url "trips:ai_shiori_new" %}';
+    {% endif %}
+
+    function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.classList.remove('d-none');
+        resultEl.classList.add('d-none');
+    }
+
+    function escapeHTML(s) {
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    runBtn.addEventListener('click', async () => {
+        const targets = [];
+        if (planCb.checked) targets.push('plan');
+        if (packingCb.checked) targets.push('packing');
+        if (targets.length === 0) {
+            showError('「旅行計画」「準備リスト」のどちらかにチェックを入れてください。');
+            return;
+        }
+
+        // フォームの現在値を取得
+        const form = document.querySelector('form[method="POST"]');
+        const getVal = (name) => {
+            const el = form ? form.querySelector(`[name="${name}"]`) : null;
+            return el ? el.value : '';
+        };
+
+        const fd = new FormData();
+        targets.forEach(t => fd.append('targets', t));
+        fd.append('instructions', instTa.value || '');
+        fd.append('name', getVal('name'));
+        fd.append('destination', getVal('destination'));
+        fd.append('start_date', getVal('start_date'));
+        fd.append('end_date', getVal('end_date'));
+        fd.append('theme', getVal('theme'));
+        fd.append('summary', getVal('summary'));
+
+        runBtn.disabled = true;
+        statusEl.classList.remove('d-none');
+        errorEl.classList.add('d-none');
+        resultEl.classList.add('d-none');
+
+        try {
+            const res = await fetch(aiUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            statusEl.classList.add('d-none');
+            runBtn.disabled = false;
+
+            if (!res.ok) {
+                showError(data.error || `エラーが発生しました（HTTP ${res.status}）。`);
+                return;
+            }
+
+            const messages = [];
+            if (typeof data.md_plan === 'string' && data.md_plan.trim() !== '') {
+                if (typeof window.__setPlanMarkdown === 'function') {
+                    window.__setPlanMarkdown(data.md_plan);
+                    messages.push('🗺️ 旅行計画を反映しました。');
+                }
+            }
+            if (Array.isArray(data.packing) && data.packing.length > 0) {
+                data.packing.forEach(p => {
+                    if (typeof window.__addPackingRow === 'function') window.__addPackingRow(p);
+                });
+                messages.push(`🎒 準備リストに ${data.packing.length} 件追加しました。`);
+            }
+
+            if (messages.length === 0) {
+                showError('生成結果が空でした。指示を具体的にして再度お試しください。');
+                return;
+            }
+            messages.push('画面下の「保存」ボタンを押すと確定します。');
+            resultEl.innerHTML = messages.map(m => `<div>${escapeHTML(m)}</div>`).join('');
+            resultEl.classList.remove('d-none');
+        } catch (e) {
+            statusEl.classList.add('d-none');
+            runBtn.disabled = false;
+            showError('通信エラー: ' + e.message);
+        }
+    });
 })();
 </script>
 {% endblock %}

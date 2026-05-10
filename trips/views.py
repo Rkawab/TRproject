@@ -16,7 +16,7 @@ from .ai_service import (
     AIServiceError,
     generate_journal,
     generate_questions,
-    suggest_packing,
+    generate_shiori,
     suggest_titles,
 )
 from .forms import (
@@ -31,7 +31,6 @@ from .models import (
     STATUS_CHOICES,
     Kind,
     MemoryEntry,
-    PackingItem,
     Trip,
 )
 
@@ -196,35 +195,79 @@ def album_edit(request, pk):
 
 # ----- AI エンドポイント（POSTのみ・ボタン押下時の手動実行） -----
 
+
 @login_required
-def ai_packing(request, pk):
+def ai_shiori(request, pk=None):
+    """しおり編集／新規作成画面用に、旅行計画(md_plan)と準備リスト(packing)を一括生成。
+
+    フォーム上の現在値（旅行名・行き先・日付・テーマ・概要）をリクエストから受け取り、
+    pk があれば既存準備リストとの重複を避ける。レスポンスはフォームに反映するだけで、
+    DBには保存しない（ユーザーが「保存」を押した時点で確定する）。
+    """
     if request.method != "POST":
         return JsonResponse({"error": "POSTのみ対応しています。"}, status=405)
-    trip = get_object_or_404(Trip, pk=pk)
+
+    targets = [t for t in request.POST.getlist("targets") if t in ("plan", "packing")]
+    if not targets:
+        return JsonResponse({"error": "生成対象（旅行計画 / 準備リスト）を1つ以上選択してください。"}, status=400)
+
+    instructions = request.POST.get("instructions", "").strip()
+
+    trip_meta = {
+        "name": request.POST.get("name", "").strip(),
+        "destination": request.POST.get("destination", "").strip(),
+        "start_date": request.POST.get("start_date", "").strip(),
+        "end_date": request.POST.get("end_date", "").strip(),
+        "theme": request.POST.get("theme", "").strip(),
+        "summary": request.POST.get("summary", "").strip(),
+    }
+    if trip_meta["start_date"] and trip_meta["end_date"]:
+        try:
+            from datetime import date
+            sd = date.fromisoformat(trip_meta["start_date"])
+            ed = date.fromisoformat(trip_meta["end_date"])
+            diff = (ed - sd).days + 1
+            if 1 <= diff <= 60:
+                trip_meta["duration_days"] = diff
+        except ValueError:
+            pass
+
+    trip = None
+    existing_packing_summary = "（なし）"
+    if pk is not None:
+        trip = get_object_or_404(Trip, pk=pk)
+        if not trip_meta["name"]:
+            trip_meta["name"] = trip.name
+        if not trip_meta["destination"]:
+            trip_meta["destination"] = trip.destination
+        if not trip_meta["theme"]:
+            trip_meta["theme"] = trip.theme
+        if not trip_meta["summary"]:
+            trip_meta["summary"] = trip.summary
+        items = list(trip.packing_items.all())
+        if items:
+            existing_packing_summary = "\n".join(
+                f"- [{i.get_category_display()}] {i.name}" for i in items
+            )
+
+    kind_choices = [k.display for k in Kind.objects.all()]
+
     try:
-        suggestions = suggest_packing(trip)
+        result = generate_shiori(
+            targets=targets,
+            instructions=instructions,
+            trip_meta=trip_meta,
+            existing_packing_summary=existing_packing_summary,
+            kind_choices=kind_choices,
+            trip=trip,
+        )
     except AIServiceError as e:
         return JsonResponse({"error": str(e)}, status=500)
     except Exception as e:
-        logger.exception("ai_packing 予期せぬエラー")
+        logger.exception("ai_shiori 予期せぬエラー")
         return JsonResponse({"error": f"予期せぬエラー: {e}"}, status=500)
 
-    created = []
-    for s in suggestions:
-        item = PackingItem.objects.create(
-            trip=trip,
-            category=s["category"],
-            name=s["name"],
-            note=s.get("note", ""),
-        )
-        created.append({
-            "id": item.id,
-            "category": item.category,
-            "category_label": item.get_category_display(),
-            "name": item.name,
-            "note": item.note,
-        })
-    return JsonResponse({"created": created, "count": len(created)})
+    return JsonResponse(result)
 
 
 @login_required
