@@ -9,11 +9,18 @@
     <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
         <div>
             <h2 class="mb-1">{{ trip.name }}</h2>
-            <div class="mb-1">
+            <div class="mb-1 d-flex flex-wrap align-items-center gap-1">
                 <span class="badge bg-status-{{ trip.status }}">{{ trip.status_label }}</span>
                 {% for t in trip.themes.all %}
                 <span class="badge bg-secondary">{{ t.emoji }}{{ t.label }}</span>
                 {% endfor %}
+                <button type="button"
+                        class="btn btn-outline-primary btn-sm py-0 px-1 ms-2 copy-url-btn"
+                        id="copy-url-btn"
+                        data-copy-url="{{ request.build_absolute_uri }}"
+                        title="URLをコピー">
+                    <small>URLをコピー</small>
+                </button>
             </div>
             {% if trip.destination %}<p class="text-muted mb-0">📍 {{ trip.destination }}</p>{% endif %}
             {% if trip.start_date %}
@@ -127,4 +134,43 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var btn = document.getElementById("copy-url-btn");
+    if (!btn) return;
+    var url = btn.dataset.copyUrl || window.location.href;
+    btn.addEventListener("click", function () {
+        function done() {
+            var orig = btn.innerHTML;
+            btn.innerHTML = '<small>✓ コピーしました</small>';
+            setTimeout(function () { btn.innerHTML = orig; }, 1500);
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(url).then(done).catch(function () {
+                fallback();
+            });
+        } else {
+            fallback();
+        }
+        function fallback() {
+            var ta = document.createElement("textarea");
+            ta.value = url;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand("copy"); done(); }
+            catch (e) {
+                var orig = btn.innerHTML;
+                btn.innerHTML = '<small>コピー失敗</small>';
+                setTimeout(function () { btn.innerHTML = orig; }, 1500);
+            }
+            document.body.removeChild(ta);
+        }
+    });
+})();
+</script>
 {% endblock %}
