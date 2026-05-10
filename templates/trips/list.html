@@ -62,8 +62,10 @@
                         {% if trip.duration_days %}（{{ trip.duration_days }}日間）{% endif %}
                     </p>
                     {% endif %}
-                    {% if trip.theme %}
-                    <p class="card-text small text-muted mb-1">🏷️ {{ trip.theme }}</p>
+                    {% if trip.themes.all %}
+                    <p class="card-text small text-muted mb-1">
+                        {% for t in trip.themes.all %}{{ t.emoji }}{{ t.label }}{% if not forloop.last %} {% endif %}{% endfor %}
+                    </p>
                     {% endif %}
                     {% if trip.users.all %}
                     <p class="card-text small text-muted mb-0">

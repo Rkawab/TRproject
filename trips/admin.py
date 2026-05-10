@@ -2,11 +2,11 @@ from django.contrib import admin
 
 from .models import (
     Trip,
-    PackingItem,
     MemoryEntry,
     MemoryNote,
     AISuggestionLog,
     Kind,
+    Theme,
 )
 
 
@@ -18,10 +18,12 @@ class KindAdmin(admin.ModelAdmin):
     search_fields = ("label",)
 
 
-class PackingItemInline(admin.TabularInline):
-    model = PackingItem
-    extra = 0
-    fields = ("category", "name", "is_done", "note")
+@admin.register(Theme)
+class ThemeAdmin(admin.ModelAdmin):
+    list_display = ("order", "key", "emoji", "label")
+    list_editable = ("emoji", "label")
+    ordering = ("order", "id")
+    search_fields = ("key", "label")
 
 
 class MemoryNoteInline(admin.TabularInline):
@@ -36,15 +38,15 @@ class TripAdmin(admin.ModelAdmin):
     list_display = (
         "name", "destination", "start_date", "end_date", "status", "created_at",
     )
-    list_filter = ("status", "users")
-    search_fields = ("name", "destination", "theme")
+    list_filter = ("status", "users", "themes")
+    search_fields = ("name", "destination")
     fields = (
         "name", "destination", "start_date", "end_date",
-        "theme", "status", "summary", "md_plan",
+        "themes", "status", "summary", "md_plan", "md_packing",
         "best_shot", "best_shot_caption", "users",
     )
-    filter_horizontal = ("users",)
-    inlines = [PackingItemInline, MemoryNoteInline]
+    filter_horizontal = ("users", "themes")
+    inlines = [MemoryNoteInline]
 
 
 @admin.register(MemoryEntry)

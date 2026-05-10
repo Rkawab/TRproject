@@ -22,15 +22,14 @@ from .ai_service import (
 from .forms import (
     MemoryJournalForm,
     MemoryNoteFormSet,
-    PackingItemFormSet,
     TripAlbumForm,
     TripShioriForm,
 )
 from .models import (
-    PACKING_CATEGORY_CHOICES,
     STATUS_CHOICES,
     Kind,
     MemoryEntry,
+    Theme,
     Trip,
 )
 
@@ -44,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def trip_list(request):
-    trips = Trip.objects.all().prefetch_related("users")
+    trips = Trip.objects.all().prefetch_related("users", "themes")
 
     query = request.GET.get("q", "").strip()
     status = request.GET.get("status", "")
@@ -74,13 +73,9 @@ def trip_create(request):
     """新規作成も「旅のしおり」フォーム（基本情報 + 計画 + 準備リスト）で行う。"""
     if request.method == "POST":
         form = TripShioriForm(request.POST)
-        # formset は保存前は instance=Trip() で受けて検証する
-        packing_formset = PackingItemFormSet(request.POST, instance=Trip())
-        if form.is_valid() and packing_formset.is_valid():
+        if form.is_valid():
             with transaction.atomic():
                 trip = form.save()
-                packing_formset.instance = trip
-                packing_formset.save()
             messages.success(request, f"「{trip.name}」を登録しました。")
             return redirect("trips:detail", pk=trip.pk)
         messages.error(request, "入力内容にエラーがあります。赤字部分をご確認ください。")
@@ -89,10 +84,8 @@ def trip_create(request):
         if request.user.is_authenticated and not request.user.is_superuser:
             initial["users"] = [request.user.pk]
         form = TripShioriForm(initial=initial)
-        packing_formset = PackingItemFormSet(instance=Trip())
     return render(request, "trips/shiori_form.html", {
         "form": form,
-        "packing_formset": packing_formset,
         "title": "旅行を新規作成",
         "kind_choices": _kind_choices(),
     })
@@ -101,25 +94,15 @@ def trip_create(request):
 @login_required
 def trip_detail(request, pk):
     trip = get_object_or_404(
-        Trip.objects.prefetch_related("packing_items", "memory_notes", "users"),
+        Trip.objects.prefetch_related("memory_notes", "users", "themes"),
         pk=pk,
     )
     memory = getattr(trip, "memory", None)
-
-    packing_by_cat = {}
-    for item in trip.packing_items.all():
-        packing_by_cat.setdefault(item.category, []).append(item)
-    packing_groups = []
-    for code, label in PACKING_CATEGORY_CHOICES:
-        if code in packing_by_cat:
-            packing_groups.append((label, packing_by_cat[code]))
-
     memory_notes = list(trip.memory_notes.all())
 
     return render(request, "trips/detail.html", {
         "trip": trip,
         "memory": memory,
-        "packing_groups": packing_groups,
         "memory_notes": memory_notes,
     })
 
@@ -141,20 +124,16 @@ def shiori_edit(request, pk):
     trip = get_object_or_404(Trip, pk=pk)
     if request.method == "POST":
         form = TripShioriForm(request.POST, instance=trip)
-        packing_formset = PackingItemFormSet(request.POST, instance=trip)
-        if form.is_valid() and packing_formset.is_valid():
+        if form.is_valid():
             with transaction.atomic():
                 form.save()
-                packing_formset.save()
             messages.success(request, "旅のしおりを保存しました。")
             return redirect("trips:detail", pk=trip.pk)
         messages.error(request, "入力内容にエラーがあります。")
     else:
         form = TripShioriForm(instance=trip)
-        packing_formset = PackingItemFormSet(instance=trip)
     return render(request, "trips/shiori_form.html", {
         "form": form,
-        "packing_formset": packing_formset,
         "trip": trip,
         "title": "旅のしおりを編集",
         "kind_choices": _kind_choices(),
@@ -198,11 +177,11 @@ def album_edit(request, pk):
 
 @login_required
 def ai_shiori(request, pk=None):
-    """しおり編集／新規作成画面用に、旅行計画(md_plan)と準備リスト(packing)を一括生成。
+    """しおり編集／新規作成画面用に、旅行計画(md_plan)と準備リスト(md_packing)を一括生成。
 
-    フォーム上の現在値（旅行名・行き先・日付・テーマ・概要）をリクエストから受け取り、
-    pk があれば既存準備リストとの重複を避ける。レスポンスはフォームに反映するだけで、
-    DBには保存しない（ユーザーが「保存」を押した時点で確定する）。
+    フォーム上の現在値（旅行名・行き先・日付・テーマ・概要）をリクエストから受け取る。
+    レスポンスはフォームに反映するだけで、DBには保存しない（ユーザーが「保存」を押した時点で確定する）。
+    旅行計画・準備リストとも、フォーム上に既に内容があれば「修正モード」で部分修正する。
     """
     if request.method != "POST":
         return JsonResponse({"error": "POSTのみ対応しています。"}, status=405)
@@ -212,13 +191,20 @@ def ai_shiori(request, pk=None):
         return JsonResponse({"error": "生成対象（旅行計画 / 準備リスト）を1つ以上選択してください。"}, status=400)
 
     instructions = request.POST.get("instructions", "").strip()
+    current_md_plan = request.POST.get("current_md_plan", "")
+    current_md_packing = request.POST.get("current_md_packing", "")
+
+    theme_keys = [t for t in request.POST.getlist("themes") if t]
+    theme_labels = []
+    if theme_keys:
+        theme_labels = [t.display for t in Theme.objects.filter(pk__in=theme_keys)]
 
     trip_meta = {
         "name": request.POST.get("name", "").strip(),
         "destination": request.POST.get("destination", "").strip(),
         "start_date": request.POST.get("start_date", "").strip(),
         "end_date": request.POST.get("end_date", "").strip(),
-        "theme": request.POST.get("theme", "").strip(),
+        "theme": "、".join(theme_labels),
         "summary": request.POST.get("summary", "").strip(),
     }
     if trip_meta["start_date"] and trip_meta["end_date"]:
@@ -233,7 +219,6 @@ def ai_shiori(request, pk=None):
             pass
 
     trip = None
-    existing_packing_summary = "（なし）"
     if pk is not None:
         trip = get_object_or_404(Trip, pk=pk)
         if not trip_meta["name"]:
@@ -241,26 +226,30 @@ def ai_shiori(request, pk=None):
         if not trip_meta["destination"]:
             trip_meta["destination"] = trip.destination
         if not trip_meta["theme"]:
-            trip_meta["theme"] = trip.theme
+            trip_meta["theme"] = "、".join(t.display for t in trip.themes.all())
         if not trip_meta["summary"]:
             trip_meta["summary"] = trip.summary
-        items = list(trip.packing_items.all())
-        if items:
-            existing_packing_summary = "\n".join(
-                f"- [{i.get_category_display()}] {i.name}" for i in items
-            )
+        # フォーム上の現在値が空なら、DBの現在値をフォールバックとして使う
+        if not current_md_packing.strip() and trip.md_packing:
+            current_md_packing = trip.md_packing
 
     kind_choices = [k.display for k in Kind.objects.all()]
-    logger.info("ai_shiori: targets=%s kind_choices=%s", targets, kind_choices)
+    logger.info(
+        "ai_shiori: targets=%s plan_refine=%s packing_refine=%s",
+        targets,
+        bool(current_md_plan.strip()),
+        bool(current_md_packing.strip()),
+    )
 
     try:
         result = generate_shiori(
             targets=targets,
             instructions=instructions,
             trip_meta=trip_meta,
-            existing_packing_summary=existing_packing_summary,
             kind_choices=kind_choices,
             trip=trip,
+            current_md_plan=current_md_plan,
+            current_md_packing=current_md_packing,
         )
     except AIServiceError as e:
         return JsonResponse({"error": str(e)}, status=500)

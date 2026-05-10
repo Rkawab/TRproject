@@ -44,8 +44,16 @@
                 </div>
             </div>
             <div class="mb-3">
-                <label class="form-label">{{ form.theme.label }}</label>
-                {% render_field form.theme %}
+                <label class="form-label">{{ form.themes.label }} <span class="text-danger">*</span></label>
+                <div class="multi-dropdown" data-field="themes" data-add-label="＋ テーマを追加" data-placeholder="テーマを選択..." data-min="1"></div>
+                <div class="d-none multi-dropdown-source" data-for="themes">
+                    {% for choice in form.themes %}
+                    {{ choice.tag }}<label for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+                    {% empty %}
+                    <span class="text-muted small">テーマが登録されていません。</span>
+                    {% endfor %}
+                </div>
+                {% if form.themes.errors %}<div class="text-danger small">{{ form.themes.errors|striptags }}</div>{% endif %}
             </div>
             <div class="mb-3">
                 <label class="form-label">{{ form.status.label }} <span class="text-danger">*</span></label>
@@ -57,12 +65,10 @@
             </div>
             <div class="mb-3">
                 <label class="form-label">{{ form.users.label }} <span class="text-danger">*</span></label>
-                <div class="border rounded p-2">
+                <div class="multi-dropdown" data-field="users" data-add-label="＋ 参加者を追加" data-placeholder="参加者を選択..." data-min="1"></div>
+                <div class="d-none multi-dropdown-source" data-for="users">
                     {% for choice in form.users %}
-                    <div class="form-check form-check-inline">
-                        {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                    </div>
+                    {{ choice.tag }}<label for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
                     {% empty %}
                     <span class="text-muted small">選択可能なユーザーがいません。</span>
                     {% endfor %}
@@ -219,68 +225,97 @@
     <div class="card mb-3 shadow-sm">
         <div class="card-header fw-bold">🎒 準備リスト</div>
         <div class="card-body">
-            {{ packing_formset.management_form }}
 
-            <div class="row g-1 mb-1 small text-muted text-center">
-                <div class="col-3">分類</div>
-                <div class="col-4">項目名</div>
-                <div class="col-1">完了</div>
-                <div class="col-3">備考</div>
-                <div class="col-1"></div>
-            </div>
+            <ul class="nav nav-tabs" id="packingTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="packing-visual-tab" data-bs-toggle="tab"
+                        data-bs-target="#packing-visual" type="button" role="tab">📋 ビジュアル</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="packing-md-tab" data-bs-toggle="tab"
+                        data-bs-target="#packing-md" type="button" role="tab">📝 Markdown</button>
+                </li>
+            </ul>
 
-            <div id="packing-formset">
-                {% for f in packing_formset %}
-                <div class="row g-1 mb-1 align-items-center packing-row{% if f.errors %} border border-danger rounded p-1{% endif %}">
-                    {{ f.id }}
-                    <div class="col-3">{% render_field f.category %}</div>
-                    <div class="col-4">{% render_field f.name %}</div>
-                    <div class="col-1 text-center">{% render_field f.is_done %}</div>
-                    <div class="col-3">{% render_field f.note %}</div>
-                    <div class="col-1 text-center">
-                        {% if f.instance.pk %}
-                        <label class="small text-danger">{{ f.DELETE }}</label>
-                        {% else %}
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-row p-0 lh-1">✕</button>
-                        {% endif %}
+            <div class="tab-content border border-top-0 rounded-bottom p-3">
+
+                <!-- ビジュアル -->
+                <div class="tab-pane fade show active" id="packing-visual" role="tabpanel">
+                    <small class="text-muted d-block mb-2">カテゴリごとにチェックリストを編集できます。Markdownを知らなくてもOK。</small>
+
+                    <div id="packing-fallback-warning" class="alert alert-warning small d-none">
+                        ⚠️ 既存のMarkdown構造をビジュアルで解釈できなかったため、Markdownタブで直接編集してください。
                     </div>
-                    {% if f.errors %}
-                    <div class="col-12 text-danger small">
-                        {% for field, errs in f.errors.items %}<strong>{{ field }}:</strong> {{ errs|striptags }}<br>{% endfor %}
+
+                    <div id="packing-sections"></div>
+
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" id="packing-add-section" class="btn btn-outline-secondary btn-sm">
+                            ＋ カテゴリを追加
+                        </button>
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                                ＋ 標準カテゴリ
+                            </button>
+                            <ul class="dropdown-menu" id="packing-preset-menu">
+                                <li><button type="button" class="dropdown-item packing-preset" data-heading="🎒 持ち物">🎒 持ち物</button></li>
+                                <li><button type="button" class="dropdown-item packing-preset" data-heading="✅ 予約確認">✅ 予約確認</button></li>
+                                <li><button type="button" class="dropdown-item packing-preset" data-heading="🛒 事前購入">🛒 事前購入</button></li>
+                                <li><button type="button" class="dropdown-item packing-preset" data-heading="🔍 調べること">🔍 調べること</button></li>
+                                <li><button type="button" class="dropdown-item packing-preset" data-heading="🏠 家を出る前にやること">🏠 家を出る前にやること</button></li>
+                            </ul>
+                        </div>
                     </div>
-                    {% endif %}
                 </div>
-                {% endfor %}
+
+                <!-- Markdown -->
+                <div class="tab-pane fade" id="packing-md" role="tabpanel">
+                    {% render_field form.md_packing %}
+                    <div class="form-text">Markdown形式（チェックリスト）で準備リストを自由に記録できます。</div>
+                </div>
             </div>
 
-            <div id="packing-empty" class="d-none">
+            <!-- カテゴリカード テンプレート -->
+            <template id="packing-section-tpl">
+                <div class="card mb-2 packing-section shadow-sm">
+                    <div class="card-header py-1 d-flex align-items-center gap-2 bg-light">
+                        <span class="text-muted small">##</span>
+                        <input type="text"
+                            class="form-control form-control-sm packing-section-heading"
+                            placeholder="例: 🎒 持ち物">
+                        <button type="button" class="btn btn-sm btn-outline-danger packing-remove-section"
+                            title="このカテゴリを削除">✕</button>
+                    </div>
+                    <div class="card-body p-2">
+                        <div class="packing-rows"></div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary packing-add-row">
+                            ＋ 項目を追加
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- 項目行 テンプレート -->
+            <template id="packing-row-tpl">
                 <div class="row g-1 mb-1 align-items-center packing-row">
-                    <input type="hidden" name="packing_items-__prefix__-id">
-                    <div class="col-3">
-                        <select name="packing_items-__prefix__-category" class="form-select form-select-sm">
-                            <option value="belongings">持ち物</option>
-                            <option value="reservation">予約確認</option>
-                            <option value="purchase">事前購入</option>
-                            <option value="research">調べること</option>
-                            <option value="before_leaving">家を出る前にやること</option>
-                        </select>
+                    <div class="col-auto">
+                        <input type="checkbox" class="form-check-input packing-done" title="完了">
                     </div>
-                    <div class="col-4">
-                        <input type="text" name="packing_items-__prefix__-name" class="form-control form-control-sm" placeholder="項目名">
+                    <div class="col">
+                        <input type="text" class="form-control form-control-sm packing-name"
+                            placeholder="項目名（例: パスポート）">
                     </div>
-                    <div class="col-1 text-center">
-                        <input type="checkbox" name="packing_items-__prefix__-is_done" class="form-check-input">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control form-control-sm packing-memo"
+                            placeholder="メモ（任意）">
                     </div>
-                    <div class="col-3">
-                        <input type="text" name="packing_items-__prefix__-note" class="form-control form-control-sm" placeholder="備考">
-                    </div>
-                    <div class="col-1 text-center">
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-row p-0 lh-1">✕</button>
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-sm btn-outline-danger packing-remove-row p-0 lh-1"
+                            style="width:28px;">✕</button>
                     </div>
                 </div>
-            </div>
-
-            <button type="button" id="add-packing" class="btn btn-outline-secondary btn-sm mt-2">＋ 項目を追加</button>
+            </template>
         </div>
     </div>
 
@@ -304,8 +339,8 @@
             </div>
             <div class="modal-body">
                 <p class="small text-muted mb-3">
-                    旅行のイメージや希望をテキストで入力してください。フォーム上の基本情報（旅行名・日付など）と合わせて AI に渡し、
-                    選択した項目を自動生成します。
+                    旅行のイメージや希望をテキストで入力してください。フォーム上の基本情報（旅行名・日付など）と合わせて AI に渡し、選択した項目を自動生成します。<br>
+                    <span class="text-info">📝 一度生成した後も、追加の指示を書き足してもう一度「生成する」を押すと、AI が <strong>既存の内容をベースに修正</strong> してくれます。</span>
                 </p>
 
                 <div class="mb-3">
@@ -327,17 +362,13 @@
                     <div class="form-text">具体的に書くほど精度が上がります（行き先・希望のアクティビティ・移動手段など）。</div>
                 </div>
 
-                {% if trip %}
-                <div class="alert alert-warning small py-2 mb-3">
-                    ⚠️ 「旅行計画」を生成すると、現在の Markdown 旅行計画は <strong>上書き</strong> されます。<br>
-                    「準備リスト」は既存項目に <strong>追加</strong> されます（AI 側で重複は避けます）。
+                <div id="ai-shiori-mode-new" class="alert alert-warning small py-2 mb-3 d-none">
+                    ⚠️ 現在入力中の Markdown は <strong>上書き</strong> されます（旅行計画・準備リストとも）。
                 </div>
-                {% else %}
-                <div class="alert alert-warning small py-2 mb-3">
-                    ⚠️ 「旅行計画」を生成すると、現在入力中の Markdown は <strong>上書き</strong> されます。<br>
-                    「準備リスト」は現在の項目に <strong>追加</strong> されます。
+                <div id="ai-shiori-mode-refine" class="alert alert-info small py-2 mb-3 d-none">
+                    🛠️ <strong>修正モード</strong>: 既に内容が入力されている項目について、AIは <strong>既存の内容をベースに</strong> 上の指示で示された箇所だけを直します（差分上書き）。<br>
+                    内容が空の項目は新規生成されます。
                 </div>
-                {% endif %}
 
                 <div id="ai-shiori-status" class="d-none">
                     <div class="spinner-border spinner-border-sm text-info me-1" role="status"></div>
@@ -361,65 +392,298 @@
 
 {% block extra_js %}
 <script>
-// ===== 準備リスト formset =====
+// ===== ドロップダウン式の複数選択（チェックボックス置き換え） =====
 (function () {
-    const formset = document.getElementById('packing-formset');
-    const emptyTpl = document.getElementById('packing-empty');
-    const total = document.getElementById('id_packing_items-TOTAL_FORMS');
-    const addBtn = document.getElementById('add-packing');
+    function setup(container) {
+        const fieldName = container.dataset.field;
+        const addLabel = container.dataset.addLabel || '＋ 追加';
+        const placeholder = container.dataset.placeholder || '選択してください';
+        const minCount = parseInt(container.dataset.min || '0', 10);
+        const source = document.querySelector(`.multi-dropdown-source[data-for="${fieldName}"]`);
+        if (!source) return;
 
-    // 行の削除/追加後にフォームprefixを 0..n-1 に振り直し、TOTAL_FORMS も同期する。
-    // これをやらないと、DOMから消えたフォームのインデックスがTOTAL_FORMS内に残り、
-    // サーバー側で「空欄の幽霊フォーム」として必須エラーになる。
-    function renumber() {
-        const rows = formset.querySelectorAll('.packing-row');
-        rows.forEach(function (row, i) {
-            row.querySelectorAll('[name]').forEach(function (el) {
-                el.name = el.name.replace(/packing_items-\d+-/, 'packing_items-' + i + '-');
-            });
-            row.querySelectorAll('[id]').forEach(function (el) {
-                el.id = el.id.replace(/id_packing_items-\d+-/, 'id_packing_items-' + i + '-');
-            });
-            row.querySelectorAll('label[for]').forEach(function (el) {
-                el.htmlFor = el.htmlFor.replace(/id_packing_items-\d+-/, 'id_packing_items-' + i + '-');
-            });
-        });
-        total.value = rows.length;
-    }
-
-    function bindRemove() {
-        document.querySelectorAll('#packing-formset .remove-row').forEach(function (btn) {
-            btn.onclick = function () {
-                btn.closest('.packing-row').remove();
-                renumber();
+        // 元のチェックボックスから選択肢を抽出（チェック状態も保持）
+        const checkboxes = Array.from(source.querySelectorAll(`input[type="checkbox"][name="${fieldName}"]`));
+        const options = checkboxes.map(cb => {
+            const label = source.querySelector(`label[for="${cb.id}"]`);
+            return {
+                value: cb.value,
+                label: label ? label.textContent.trim() : cb.value,
+                checkbox: cb,
             };
         });
+        if (options.length === 0) {
+            container.innerHTML = '<span class="text-muted small">選択肢がありません。</span>';
+            return;
+        }
+
+        const rowsWrap = document.createElement('div');
+        rowsWrap.className = 'd-flex flex-column gap-2';
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'btn btn-outline-secondary btn-sm mt-2';
+        addBtn.textContent = addLabel;
+        container.appendChild(rowsWrap);
+        container.appendChild(addBtn);
+
+        function selectedValues() {
+            return Array.from(rowsWrap.querySelectorAll('select')).map(s => s.value).filter(Boolean);
+        }
+
+        function refreshOptionsAvailability() {
+            const taken = new Set(selectedValues());
+            rowsWrap.querySelectorAll('select').forEach(sel => {
+                const own = sel.value;
+                Array.from(sel.options).forEach(opt => {
+                    if (!opt.value) return;
+                    opt.disabled = taken.has(opt.value) && opt.value !== own;
+                });
+            });
+            // 元チェックボックスを同期
+            const taken2 = new Set(selectedValues());
+            options.forEach(opt => {
+                opt.checkbox.checked = taken2.has(opt.value);
+            });
+            // 追加ボタンの有効/無効
+            addBtn.disabled = selectedValues().length >= options.length;
+            // 削除ボタンの最低数制御
+            const rows = rowsWrap.querySelectorAll('.dropdown-row');
+            rows.forEach(row => {
+                const removeBtn = row.querySelector('.remove-row');
+                if (removeBtn) {
+                    removeBtn.disabled = rows.length <= Math.max(minCount, 1);
+                }
+            });
+        }
+
+        function makeRow(initialValue) {
+            const row = document.createElement('div');
+            row.className = 'dropdown-row d-flex gap-2 align-items-center';
+
+            const sel = document.createElement('select');
+            sel.className = 'form-select';
+            const ph = document.createElement('option');
+            ph.value = '';
+            ph.textContent = placeholder;
+            sel.appendChild(ph);
+            options.forEach(opt => {
+                const o = document.createElement('option');
+                o.value = opt.value;
+                o.textContent = opt.label;
+                sel.appendChild(o);
+            });
+            if (initialValue) sel.value = initialValue;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-outline-danger btn-sm remove-row';
+            removeBtn.setAttribute('aria-label', '削除');
+            removeBtn.textContent = '−';
+
+            sel.addEventListener('change', refreshOptionsAvailability);
+            removeBtn.addEventListener('click', () => {
+                row.remove();
+                refreshOptionsAvailability();
+            });
+
+            row.appendChild(sel);
+            row.appendChild(removeBtn);
+            return row;
+        }
+
+        // 初期: 既にチェック済みの値があれば1件ずつ行を作る。なければ空1行。
+        const initial = options.filter(o => o.checkbox.checked).map(o => o.value);
+        if (initial.length === 0) {
+            rowsWrap.appendChild(makeRow(''));
+        } else {
+            initial.forEach(v => rowsWrap.appendChild(makeRow(v)));
+        }
+
+        addBtn.addEventListener('click', () => {
+            if (selectedValues().length >= options.length) return;
+            rowsWrap.appendChild(makeRow(''));
+            refreshOptionsAvailability();
+        });
+
+        refreshOptionsAvailability();
     }
 
-    function addRow() {
-        const idx = parseInt(total.value);
-        const html = emptyTpl.innerHTML.replace(/__prefix__/g, idx);
-        formset.insertAdjacentHTML('beforeend', html);
-        total.value = idx + 1;
-        bindRemove();
-        return formset.lastElementChild;
+    document.querySelectorAll('.multi-dropdown').forEach(setup);
+})();
+
+// ===== 準備リスト ビジュアルエディタ（md_packing） =====
+(function () {
+    const mdField = document.getElementById('id_md_packing');
+    if (!mdField) return;
+
+    const visualPane = document.getElementById('packing-visual');
+    const visualTabBtn = document.getElementById('packing-visual-tab');
+    const mdTabBtn = document.getElementById('packing-md-tab');
+    const sectionsContainer = document.getElementById('packing-sections');
+    const fallbackWarn = document.getElementById('packing-fallback-warning');
+    const addSectionBtn = document.getElementById('packing-add-section');
+    const sectionTpl = document.getElementById('packing-section-tpl');
+    const rowTpl = document.getElementById('packing-row-tpl');
+    const formEl = mdField.closest('form');
+
+    // ----- パース: md → {ok, sections} -----
+    // section = { heading: "🎒 持ち物", rows: [{done, name, memo}, ...] }
+    function parseMd(md) {
+        const lines = (md || '').replace(/\r\n/g, '\n').split('\n');
+        const sections = [];
+        let current = null;
+        let parseOk = true;
+
+        const taskRe = /^\s*-\s*\[([ xX])\]\s*(.+?)\s*$/;
+        const memoSplitRe = /\s+—\s+|\s+--\s+|\s+-\s+/;  // em dash優先、フォールバックでハイフン
+
+        for (let i = 0; i < lines.length; i++) {
+            const ln = lines[i];
+            const trimmed = ln.trim();
+            if (trimmed === '') continue;
+
+            const headMatch = ln.match(/^##\s+(.+?)\s*$/);
+            if (headMatch) {
+                current = { heading: headMatch[1].trim(), rows: [] };
+                sections.push(current);
+                continue;
+            }
+
+            const taskMatch = ln.match(taskRe);
+            if (taskMatch) {
+                if (!current) {
+                    // 見出しが無ければ仮想セクションを作る
+                    current = { heading: '🎒 持ち物', rows: [] };
+                    sections.push(current);
+                }
+                const done = taskMatch[1].toLowerCase() === 'x';
+                let body = taskMatch[2];
+                let name = body, memo = '';
+                const sep = body.match(/\s+—\s+(.+)$/);  // em dash 区切り
+                if (sep) {
+                    name = body.slice(0, sep.index).trim();
+                    memo = sep[1].trim();
+                }
+                current.rows.push({ done, name, memo });
+                continue;
+            }
+
+            // 空行・見出し・タスク以外の行が混ざっていたらフォールバック警告
+            if (trimmed !== '---') parseOk = false;
+        }
+
+        return { ok: parseOk, sections };
     }
 
-    addBtn.addEventListener('click', addRow);
+    // ----- シリアライズ -----
+    function serialize() {
+        const out = [];
+        const sectionEls = sectionsContainer.querySelectorAll('.packing-section');
+        sectionEls.forEach((sec, idx) => {
+            const heading = sec.querySelector('.packing-section-heading').value.trim() || 'カテゴリ';
+            if (idx > 0) out.push('');
+            out.push(`## ${heading}`);
+            const rows = sec.querySelectorAll('.packing-row');
+            rows.forEach(r => {
+                const done = r.querySelector('.packing-done').checked;
+                const name = (r.querySelector('.packing-name').value || '').trim();
+                const memo = (r.querySelector('.packing-memo').value || '').trim();
+                if (!name && !memo) return;
+                const mark = done ? 'x' : ' ';
+                const body = memo ? `${name} — ${memo}` : name;
+                out.push(`- [${mark}] ${body}`);
+            });
+        });
+        const text = out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+        return text ? text + '\n' : '';
+    }
 
-    // AIモーダルから1行ずつ追加するための公開API
-    window.__addPackingRow = function (data) {
-        const row = addRow();
-        if (!row || !data) return;
-        const sel = row.querySelector('select[name$="-category"]');
-        if (sel) sel.value = data.category || 'belongings';
-        const nameInp = row.querySelector('input[name$="-name"]');
-        if (nameInp) nameInp.value = data.name || '';
-        const noteInp = row.querySelector('input[name$="-note"]');
-        if (noteInp) noteInp.value = data.note || '';
+    // ----- UI 構築 -----
+    function buildSection(data) {
+        const node = sectionTpl.content.firstElementChild.cloneNode(true);
+        node.querySelector('.packing-section-heading').value = (data && data.heading) || '';
+        const rowsBox = node.querySelector('.packing-rows');
+        const rows = (data && data.rows) || [];
+        if (rows.length === 0) rowsBox.appendChild(buildRow({}));
+        else rows.forEach(r => rowsBox.appendChild(buildRow(r)));
+        node.querySelector('.packing-remove-section').addEventListener('click', () => {
+            if (confirm('このカテゴリを削除しますか？')) node.remove();
+        });
+        node.querySelector('.packing-add-row').addEventListener('click', () => {
+            rowsBox.appendChild(buildRow({}));
+        });
+        return node;
+    }
+
+    function buildRow(r) {
+        const tr = rowTpl.content.firstElementChild.cloneNode(true);
+        tr.querySelector('.packing-done').checked = !!r.done;
+        tr.querySelector('.packing-name').value = r.name || '';
+        tr.querySelector('.packing-memo').value = r.memo || '';
+        tr.querySelector('.packing-remove-row').addEventListener('click', () => tr.remove());
+        return tr;
+    }
+
+    function rebuildVisualFromMd() {
+        const parsed = parseMd(mdField.value);
+        sectionsContainer.innerHTML = '';
+        parsed.sections.forEach(s => sectionsContainer.appendChild(buildSection(s)));
+        if (!parsed.ok) {
+            fallbackWarn.classList.remove('d-none');
+            new bootstrap.Tab(mdTabBtn).show();
+        } else {
+            fallbackWarn.classList.add('d-none');
+        }
+    }
+
+    // ----- タブ同期 -----
+    visualTabBtn.addEventListener('shown.bs.tab', rebuildVisualFromMd);
+    mdTabBtn.addEventListener('show.bs.tab', () => { mdField.value = serialize(); });
+
+    // ----- submit時に最終反映 -----
+    if (formEl) {
+        formEl.addEventListener('submit', () => {
+            if (visualPane.classList.contains('active')) mdField.value = serialize();
+        });
+    }
+
+    // ----- ボタン -----
+    addSectionBtn.addEventListener('click', () => {
+        sectionsContainer.appendChild(buildSection({ heading: '', rows: [] }));
+    });
+    document.querySelectorAll('.packing-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const heading = btn.dataset.heading || '';
+            // 既に同じ見出しが存在すればそこにフォーカス
+            const existing = Array.from(sectionsContainer.querySelectorAll('.packing-section-heading'))
+                .find(inp => inp.value.trim() === heading);
+            if (existing) {
+                existing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                existing.focus();
+                return;
+            }
+            sectionsContainer.appendChild(buildSection({ heading, rows: [] }));
+        });
+    });
+
+    // AIモーダルから準備リスト Markdown を反映するための公開API
+    window.__setPackingMarkdown = function (md) {
+        mdField.value = md || '';
+        if (visualPane.classList.contains('active')) {
+            rebuildVisualFromMd();
+        }
     };
 
-    bindRemove();
+    // ビジュアルタブで編集中の状態を md_packing TextArea に同期する公開API
+    // （AIモーダルが「現在のmd_packing」を読む前に呼ぶ）
+    window.__syncPackingMd = function () {
+        if (visualPane.classList.contains('active')) {
+            mdField.value = serialize();
+        }
+    };
+
+    // ----- 初期化 -----
+    rebuildVisualFromMd();
 })();
 
 // ===== 旅行計画 ビジュアルエディタ =====
@@ -447,6 +711,18 @@
         const headerIdx = [];
         for (let k = 0; k < lines.length; k++) {
             if (/^##\s+/.test(lines[k])) headerIdx.push(k);
+        }
+
+        // `##` 見出しが無いがテーブルが存在する場合は、テーブル直前に仮想見出しを挿入して
+        // 単一日扱いにする（日帰り計画でAIや手書きが ## を省いたケースを救済）
+        if (headerIdx.length === 0) {
+            for (let k = 0; k < lines.length; k++) {
+                if (/^\|.*\|.*\|/.test(lines[k])) {
+                    lines.splice(k, 0, '## 1日目');
+                    headerIdx.push(k);
+                    break;
+                }
+            }
         }
 
         function blockHasTable(start, end) {
@@ -732,12 +1008,15 @@
 (function () {
     const runBtn = document.getElementById('ai-shiori-run');
     if (!runBtn) return;
+    const modalEl = document.getElementById('aiShioriModal');
     const statusEl = document.getElementById('ai-shiori-status');
     const errorEl = document.getElementById('ai-shiori-error');
     const resultEl = document.getElementById('ai-shiori-result');
     const instTa = document.getElementById('ai-instructions');
     const planCb = document.getElementById('ai-target-plan');
     const packingCb = document.getElementById('ai-target-packing');
+    const modeNew = document.getElementById('ai-shiori-mode-new');
+    const modeRefine = document.getElementById('ai-shiori-mode-refine');
     const csrfInput = document.querySelector('#ai-csrf-form [name=csrfmiddlewaretoken]');
     const csrfToken = csrfInput ? csrfInput.value : '';
 
@@ -759,6 +1038,37 @@
         }[c]));
     }
 
+    function getCurrentMdPlan() {
+        const mdField = document.getElementById('id_md_plan');
+        return mdField ? (mdField.value || '') : '';
+    }
+
+    function getCurrentMdPacking() {
+        const mdField = document.getElementById('id_md_packing');
+        // ビジュアルタブが表示中なら、ビジュアル側の最新値を md_packing に反映してから取得
+        if (typeof window.__syncPackingMd === 'function') window.__syncPackingMd();
+        return mdField ? (mdField.value || '') : '';
+    }
+
+    // モーダルを開いた時 / 入力を変えた時に、新規/修正モード表示を更新
+    function refreshMode() {
+        const wantPlan = planCb.checked;
+        const wantPacking = packingCb.checked;
+        const planRefining = wantPlan && getCurrentMdPlan().trim() !== '';
+        const packingRefining = wantPacking && getCurrentMdPacking().trim() !== '';
+        const refining = planRefining || packingRefining;
+        modeNew.classList.toggle('d-none', refining);
+        modeRefine.classList.toggle('d-none', !refining);
+        runBtn.textContent = refining ? '修正する' : '生成する';
+    }
+
+    if (modalEl) {
+        modalEl.addEventListener('show.bs.modal', refreshMode);
+    }
+    planCb.addEventListener('change', refreshMode);
+    packingCb.addEventListener('change', refreshMode);
+    refreshMode();
+
     runBtn.addEventListener('click', async () => {
         const targets = [];
         if (planCb.checked) targets.push('plan');
@@ -774,6 +1084,10 @@
             const el = form ? form.querySelector(`[name="${name}"]`) : null;
             return el ? el.value : '';
         };
+        const getCheckedValues = (name) => {
+            if (!form) return [];
+            return Array.from(form.querySelectorAll(`input[name="${name}"]:checked`)).map(el => el.value);
+        };
 
         const fd = new FormData();
         targets.forEach(t => fd.append('targets', t));
@@ -782,8 +1096,11 @@
         fd.append('destination', getVal('destination'));
         fd.append('start_date', getVal('start_date'));
         fd.append('end_date', getVal('end_date'));
-        fd.append('theme', getVal('theme'));
+        getCheckedValues('themes').forEach(v => fd.append('themes', v));
         fd.append('summary', getVal('summary'));
+        // 反復修正用: フォーム上の現在の md_plan と md_packing を送る
+        fd.append('current_md_plan', getCurrentMdPlan());
+        fd.append('current_md_packing', getCurrentMdPacking());
 
         runBtn.disabled = true;
         statusEl.classList.remove('d-none');
@@ -806,26 +1123,31 @@
             }
 
             const messages = [];
+            const wasRefining = !modeRefine.classList.contains('d-none');
             if (typeof data.md_plan === 'string' && data.md_plan.trim() !== '') {
                 if (typeof window.__setPlanMarkdown === 'function') {
                     window.__setPlanMarkdown(data.md_plan);
-                    messages.push('🗺️ 旅行計画を反映しました。');
+                    messages.push(wasRefining ? '🗺️ 旅行計画を修正しました。' : '🗺️ 旅行計画を反映しました。');
                 }
             }
-            if (Array.isArray(data.packing) && data.packing.length > 0) {
-                data.packing.forEach(p => {
-                    if (typeof window.__addPackingRow === 'function') window.__addPackingRow(p);
-                });
-                messages.push(`🎒 準備リストに ${data.packing.length} 件追加しました。`);
+            if (typeof data.md_packing === 'string' && data.md_packing.trim() !== '') {
+                if (typeof window.__setPackingMarkdown === 'function') {
+                    window.__setPackingMarkdown(data.md_packing);
+                    messages.push(wasRefining ? '🎒 準備リストを修正しました。' : '🎒 準備リストを反映しました。');
+                }
             }
 
             if (messages.length === 0) {
                 showError('生成結果が空でした。指示を具体的にして再度お試しください。');
                 return;
             }
+            messages.push('💡 さらに直したい場合は、上の指示欄に追記して再度ボタンを押してください（既存内容をベースに修正されます）。');
             messages.push('画面下の「保存」ボタンを押すと確定します。');
             resultEl.innerHTML = messages.map(m => `<div>${escapeHTML(m)}</div>`).join('');
             resultEl.classList.remove('d-none');
+
+            // 反復に備えてモード表示を更新（md_plan が入ったので「修正」モードになる）
+            refreshMode();
         } catch (e) {
             statusEl.classList.add('d-none');
             runBtn.disabled = false;

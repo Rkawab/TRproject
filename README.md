@@ -156,9 +156,7 @@ location /travel/media/ {
 ## 本番デプロイ
 
 Raspberry Pi 4上で `/travel/` パスとして公開する構成。
-詳細手順は Obsidian保管庫の以下ノートを参照。
 
-- `03_Notes/03_プロジェクト記録/Webアプリ/旅行記録/logs/deploy/RaspberryPi駆動化_3アプリ目.md`
 
 `git pull` 後の更新手順:
 

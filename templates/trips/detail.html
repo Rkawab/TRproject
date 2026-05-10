@@ -11,9 +11,9 @@
             <h2 class="mb-1">{{ trip.name }}</h2>
             <div class="mb-1">
                 <span class="badge bg-status-{{ trip.status }}">{{ trip.status_label }}</span>
-                {% if trip.theme %}
-                <span class="badge bg-secondary">{{ trip.theme }}</span>
-                {% endif %}
+                {% for t in trip.themes.all %}
+                <span class="badge bg-secondary">{{ t.emoji }}{{ t.label }}</span>
+                {% endfor %}
             </div>
             {% if trip.destination %}<p class="text-muted mb-0">📍 {{ trip.destination }}</p>{% endif %}
             {% if trip.start_date %}
@@ -85,21 +85,10 @@
             <span class="fw-bold">🎒 準備リスト</span>
         </div>
         <div class="card-body">
-            {% if packing_groups %}
-            {% for label, items in packing_groups %}
-            <h6 class="text-success border-bottom pb-1 mb-2">{{ label }}</h6>
-            <ul class="list-group list-group-flush mb-3">
-                {% for item in items %}
-                <li class="list-group-item px-0 d-flex align-items-center">
-                    <span class="me-2">{% if item.is_done %}✅{% else %}⬜{% endif %}</span>
-                    <span class="{% if item.is_done %}text-decoration-line-through text-muted{% endif %}">{{ item.name }}</span>
-                    {% if item.note %}<span class="text-muted small ms-2">— {{ item.note }}</span>{% endif %}
-                </li>
-                {% endfor %}
-            </ul>
-            {% endfor %}
+            {% if trip.md_packing %}
+            <div class="markdown-body">{{ trip.md_packing|markdownify }}</div>
             {% else %}
-            <p class="text-muted mb-0">まだ準備項目がありません。</p>
+            <p class="text-muted mb-0">まだ準備項目がありません。Markdown形式（チェックリスト）で入力できます。</p>
             {% endif %}
         </div>
     </div>

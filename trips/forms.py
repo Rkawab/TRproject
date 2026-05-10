@@ -5,7 +5,7 @@ from django.forms import inlineformset_factory
 from .models import (
     MemoryEntry,
     MemoryNote,
-    PackingItem,
+    Theme,
     Trip,
 )
 
@@ -19,6 +19,12 @@ class UserChoiceField(forms.ModelMultipleChoiceField):
         return obj.username
 
 
+class ThemeChoiceField(forms.ModelMultipleChoiceField):
+    """テーマ選択用。絵文字+ラベル表示。"""
+    def label_from_instance(self, obj):
+        return f"{obj.emoji}{obj.label}"
+
+
 class TripShioriForm(forms.ModelForm):
     """旅のしおり（旅行前情報）: 基本情報 + 旅行計画"""
 
@@ -29,11 +35,18 @@ class TripShioriForm(forms.ModelForm):
         label="参加者",
     )
 
+    themes = ThemeChoiceField(
+        queryset=Theme.objects.all(),
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        required=True,
+        label="テーマ",
+    )
+
     class Meta:
         model = Trip
         fields = [
             "name", "destination", "start_date", "end_date",
-            "theme", "status", "summary", "md_plan", "users",
+            "themes", "status", "summary", "md_plan", "md_packing", "users",
         ]
         widgets = {
             "name": forms.TextInput(attrs={
@@ -50,10 +63,6 @@ class TripShioriForm(forms.ModelForm):
             "end_date": forms.DateInput(attrs={
                 "class": "form-control", "type": "date",
             }),
-            "theme": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "例: 温泉、食べ歩き、記念日",
-            }),
             "status": forms.Select(attrs={"class": "form-select"}),
             "summary": forms.Textarea(attrs={
                 "class": "form-control", "rows": 3,
@@ -63,6 +72,11 @@ class TripShioriForm(forms.ModelForm):
                 "class": "form-control font-monospace",
                 "rows": 20,
                 "placeholder": "# 旅行計画\n\n## 1日目\n- 10:00 那覇空港着\n- ...",
+            }),
+            "md_packing": forms.Textarea(attrs={
+                "class": "form-control font-monospace",
+                "rows": 14,
+                "placeholder": "## 🎒 持ち物\n- [ ] パスポート\n- [x] 充電器\n\n## ✅ 予約確認\n- [ ] 航空券",
             }),
         }
 
@@ -91,20 +105,6 @@ class TripAlbumForm(forms.ModelForm):
                 "maxlength": 200,
             }),
         }
-
-
-PackingItemFormSet = inlineformset_factory(
-    Trip, PackingItem,
-    fields=["category", "name", "is_done", "note"],
-    widgets={
-        "category": forms.Select(attrs={"class": "form-select form-select-sm"}),
-        "name": forms.TextInput(attrs={"class": "form-control form-control-sm", "placeholder": "項目名"}),
-        "is_done": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-        "note": forms.TextInput(attrs={"class": "form-control form-control-sm", "placeholder": "備考"}),
-    },
-    extra=5,
-    can_delete=True,
-)
 
 
 MemoryNoteFormSet = inlineformset_factory(

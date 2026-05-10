@@ -11,15 +11,6 @@ STATUS_CHOICES = [
 ]
 
 
-PACKING_CATEGORY_CHOICES = [
-    ("belongings", "持ち物"),
-    ("reservation", "予約確認"),
-    ("purchase", "事前購入"),
-    ("research", "調べること"),
-    ("before_leaving", "家を出る前にやること"),
-]
-
-
 AI_KIND_CHOICES = [
     ("packing", "準備リスト提案"),
     ("question", "思い出整理の質問"),
@@ -35,7 +26,12 @@ class Trip(models.Model):
     destination = models.CharField(max_length=200, blank=True, verbose_name="行き先")
     start_date = models.DateField(null=True, blank=True, verbose_name="開始日")
     end_date = models.DateField(null=True, blank=True, verbose_name="終了日")
-    theme = models.CharField(max_length=100, blank=True, verbose_name="テーマ")
+    themes = models.ManyToManyField(
+        "Theme",
+        related_name="trips",
+        blank=True,
+        verbose_name="テーマ",
+    )
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default="planning", verbose_name="ステータス"
     )
@@ -47,6 +43,7 @@ class Trip(models.Model):
         verbose_name="参加者",
     )
     md_plan = models.TextField(blank=True, verbose_name="旅行計画（Markdown）")
+    md_packing = models.TextField(blank=True, verbose_name="準備リスト（Markdown）")
     best_shot = models.ImageField(
         upload_to="best_shots/", blank=True, null=True, verbose_name="ベストショット"
     )
@@ -95,24 +92,25 @@ class Kind(models.Model):
         return f"{self.emoji}{self.label}"
 
 
-class PackingItem(models.Model):
-    """準備リスト（持ち物・予約確認・事前購入・調べること・家を出る前にやること）"""
-    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name="packing_items")
-    category = models.CharField(
-        max_length=20, choices=PACKING_CATEGORY_CHOICES, default="belongings",
-        verbose_name="分類",
-    )
-    name = models.CharField(max_length=200, verbose_name="項目名")
-    is_done = models.BooleanField(default=False, verbose_name="完了")
-    note = models.CharField(max_length=200, blank=True, verbose_name="備考")
-    created_at = models.DateTimeField(auto_now_add=True)
+class Theme(models.Model):
+    """旅行テーマのマスタ。Trip と多対多で紐付ける。"""
+    key = models.SlugField(max_length=30, unique=True, verbose_name="識別子")
+    emoji = models.CharField(max_length=10, blank=True, verbose_name="絵文字")
+    label = models.CharField(max_length=50, verbose_name="ラベル")
+    order = models.IntegerField(default=0, verbose_name="表示順")
 
     class Meta:
-        db_table = "packing_item"
-        ordering = ["category", "is_done", "id"]
+        db_table = "theme"
+        ordering = ["order", "id"]
+        verbose_name = "テーマ"
+        verbose_name_plural = "テーマ"
 
     def __str__(self):
-        return f"{self.get_category_display()}: {self.name}"
+        return f"{self.emoji}{self.label}"
+
+    @property
+    def display(self):
+        return f"{self.emoji}{self.label}"
 
 
 class MemoryEntry(models.Model):

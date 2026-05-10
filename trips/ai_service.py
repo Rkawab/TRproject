@@ -6,10 +6,11 @@
 """
 import json
 import logging
+import re
 
 from django.conf import settings
 
-from .models import AISuggestionLog, PACKING_CATEGORY_CHOICES, Trip
+from .models import AISuggestionLog, Trip
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +112,9 @@ def _summarize_trip(trip: Trip) -> str:
         parts.append(f"終了日: {trip.end_date:%Y-%m-%d}")
     if trip.duration_days:
         parts.append(f"日数: {trip.duration_days}日間")
-    if trip.theme:
-        parts.append(f"テーマ: {trip.theme}")
+    theme_labels = [t.display for t in trip.themes.all()]
+    if theme_labels:
+        parts.append(f"テーマ: {'、'.join(theme_labels)}")
     if trip.summary:
         parts.append(f"概要: {trip.summary}")
     return "\n".join(parts)
@@ -125,6 +127,76 @@ def _summarize_memory_notes(trip: Trip) -> str:
         return "（未記入）"
     lines = [f"- {note.body}" for note in notes]
     return "\n".join(lines)
+
+
+def _ensure_day_heading(md: str) -> str:
+    """`##` 日見出しが1個も無いがテーブルが存在する場合、テーブル直前に `## 1日目` を補う。
+
+    ビジュアルエディタ側のパーサも同様の救済を行うが、保存後のMarkdown正規性のため
+    サーバ側でも自動補完しておく（日帰り計画でAIが `##` を省くケースの保険）。
+    """
+    if not md:
+        return md
+    lines = md.splitlines()
+    has_day_heading = any(
+        line.startswith("## ") and "🧠" not in line for line in lines
+    )
+    if has_day_heading:
+        return md
+    table_idx = -1
+    for i, line in enumerate(lines):
+        if re.match(r"^\|.*\|.*\|", line):
+            table_idx = i
+            break
+    if table_idx < 0:
+        return md
+    insert = ["## 1日目", ""]
+    # テーブル直前が空行で無ければ前に空行も足して整える
+    if table_idx > 0 and lines[table_idx - 1].strip() != "":
+        insert = ["", "## 1日目", ""]
+    new_lines = lines[:table_idx] + insert + lines[table_idx:]
+    logger.info("AI出力に `##` 日見出しが無かったため `## 1日目` を自動補完しました")
+    return "\n".join(new_lines).rstrip() + "\n"
+
+
+def _truncate_extra_day_sections(md: str, expected_day_count: int) -> str:
+    """修正モードで AI が `##` 日見出しを増やしてきた場合、超過分を切り落とす。
+
+    末尾の `## 🧠 ポイント` のような補足セクションは保持する。
+    日見出し(🧠を含まない `## ` 行)の出現を数え、`expected_day_count` 個目を超えた箇所から
+    次の「🧠 を含む `## `」または末尾までを除去する。
+    """
+    if expected_day_count <= 0:
+        return md
+    lines = md.splitlines()
+    day_count = 0
+    cut_start = -1
+    for i, line in enumerate(lines):
+        if line.startswith("## ") and "🧠" not in line:
+            day_count += 1
+            if day_count > expected_day_count:
+                cut_start = i
+                break
+    if cut_start < 0:
+        return md
+    # 切り落とし区間の終点 = 末尾、または次の「🧠 を含む ##」(補足セクション)の直前
+    cut_end = len(lines)
+    for j in range(cut_start, len(lines)):
+        if lines[j].startswith("## ") and "🧠" in lines[j]:
+            cut_end = j
+            break
+    # 切り落とし直前の連続する `---` や空行も除去
+    k = cut_start - 1
+    while k >= 0 and (lines[k].strip() == "" or lines[k].strip() == "---"):
+        k -= 1
+    new_lines = lines[: k + 1] + (["", ""] if cut_end < len(lines) else []) + lines[cut_end:]
+    truncated = "\n".join(new_lines).rstrip() + "\n"
+    if cut_end > cut_start:
+        logger.warning(
+            "修正モードで余分な日セクションを %d 行切り落としました(expected=%d, got=%d)",
+            cut_end - cut_start, expected_day_count, day_count,
+        )
+    return truncated
 
 
 def _log(trip: Trip, kind: str, prompt: str, response: str):
@@ -188,13 +260,17 @@ def generate_shiori(
     targets: list[str],
     instructions: str,
     trip_meta: dict,
-    existing_packing_summary: str,
     kind_choices: list[str],
     trip: Trip | None = None,
+    current_md_plan: str = "",
+    current_md_packing: str = "",
 ) -> dict:
-    """しおり編集／新規作成画面用に、旅行計画(md_plan)と準備リスト(packing)を一括生成する。
+    """しおり編集／新規作成画面用に、旅行計画(md_plan)と準備リスト(md_packing)を一括生成する。
 
     targets に含めたキーのみ生成する（"plan" / "packing"）。
+
+    `current_md_plan` / `current_md_packing` が非空かつ対応する target が選択されている場合は
+    **修正モード** に切替。既存の Markdown をベースに、追加指示で必要な箇所だけ修正した完全版を返す。
     """
     want_plan = "plan" in targets
     want_packing = "packing" in targets
@@ -224,8 +300,17 @@ def generate_shiori(
     if want_plan:
         schema_parts.append('"md_plan": "Markdown形式の行程表全文"')
     if want_packing:
-        schema_parts.append('"packing": [{"category": "...", "name": "...", "note": "（任意）"}]')
+        schema_parts.append('"md_packing": "Markdown形式の準備リスト全文"')
     schema = "{\n  " + ",\n  ".join(schema_parts) + "\n}"
+
+    plan_refinement = bool(want_plan and current_md_plan and current_md_plan.strip())
+    packing_refinement = bool(want_packing and current_md_packing and current_md_packing.strip())
+
+    mode_note_parts = []
+    if want_plan:
+        mode_note_parts.append("旅行計画=" + ("修正" if plan_refinement else "新規生成"))
+    if want_packing:
+        mode_note_parts.append("準備リスト=" + ("修正" if packing_refinement else "新規生成"))
 
     prompt = f"""以下の旅行のしおり情報を生成してください。
 
@@ -235,10 +320,50 @@ def generate_shiori(
 ユーザーからの追加指示:
 {instructions or '（特になし）'}
 
-すでに登録済みの準備リスト（重複しないように）:
-{existing_packing_summary}
-
 生成対象: {", ".join(targets)}
+モード: {" / ".join(mode_note_parts)}
+"""
+
+    day_count = 0
+    if plan_refinement:
+        # 既存 md_plan の `## 見出し` 数を数えて、出力でも同数にすることを強制する
+        existing_day_headings = [
+            line for line in current_md_plan.strip().splitlines()
+            if line.startswith("## ") and "🧠" not in line
+        ]
+        day_count = len(existing_day_headings)
+        existing_headings_text = "\n".join(f"  {i+1}. {h}" for i, h in enumerate(existing_day_headings))
+
+        prompt += f"""
+========================================
+【⚠️⚠️⚠️ 旅行計画 修正モード — 既存の旅行計画を「その場で」直す ⚠️⚠️⚠️】
+
+現在の旅行計画(これを **直接編集** する。新規生成ではない):
+```
+{current_md_plan.strip()}
+```
+
+既存の `##` 日見出し(全部で {day_count} 個):
+{existing_headings_text or '  (なし)'}
+
+【絶対に守る出力ルール】
+1. **出力する `##` 日見出しの数は必ず {day_count} 個。それ以上でも以下でもない。**
+2. **新しい `##` セクションを追加してはならない。**
+   - ❌「補足」「追記」「Appendix」「予備」「準備編」のような追加 `##` セクションは絶対NG
+   - ❌ 既存の日を分割して2つ以上の `##` にしない
+   - ✅ 唯一の例外: 末尾に任意で `## 🧠 ポイント` セクションを置くのは可
+3. ユーザーの追加指示が「○○を追加して」だった場合も、**該当する日のテーブルに行を1〜数行追加するだけ**で対応する。新しい `##` は作らない。
+4. ユーザーの追加指示で **明示的に変更を求められた箇所だけ** を修正する。それ以外の行・時間・文言は **完全にそのまま保持** する。
+5. 出力は差分ではなく **修正後の md_plan 完全な全文** を返す(全日分を再掲する)。
+6. 元の各日のテーブル行数を大きく増やさない(指示で追加された分だけ)。
+7. 構造ルール・種別マスタの制約(下記)は新規生成と同じく守る。
+
+【自己チェック(出力前に確認)】
+- 出力中の `##` 行を数えたか？ → {day_count} 個になっているか？
+- 「補足」「追記」のような新セクションを作っていないか？
+- 既存の行をむやみに書き換えていないか？
+
+========================================
 """
 
     if want_plan:
@@ -258,6 +383,11 @@ def generate_shiori(
 - 種別は **必ず下記「種別マスタ」の行を1つそのままコピーして使う**。絵文字とラベルを勝手に組み合わせない。マスタにない種別は **絶対に出力しない**。適切なものがマスタに無ければ空欄にする。
 - 日と日の間は 空行 + `---` + 空行 で区切る（同じ日の中では絶対に `---` を入れない）。
 - テーブル外には箇条書きや段落を書かない（末尾だけ任意で `## 🧠 ポイント` セクション可）。
+
+【🚨 出力前の必須セルフチェック — 違反していたら書き直す】
+- `## ` で始まる行（🧠 ポイントを除く）が **最低1個** あるか？
+  - 日帰りでも `## 見出し` は **絶対に省略してはならない**。テーブルだけを置くのは禁止。
+  - 該当する見出しが無い場合は、テーブルの直前に必ず日見出しを追加すること。
 
 【書きぶり】
 - 「内容」欄は **20文字以内の短いフレーズ**。名詞句や `A → B` 形式で書く。説明文は書かない。
@@ -301,16 +431,61 @@ def generate_shiori(
 """
 
     if want_packing:
+        if packing_refinement:
+            prompt += f"""
+========================================
+【⚠️ 準備リスト 修正モード — 既存の準備リストをベースに直す ⚠️】
+
+現在の準備リスト(これを **直接編集** する):
+```
+{current_md_packing.strip()}
+```
+
+【絶対に守る出力ルール】
+1. ユーザーの追加指示で **明示的に変更を求められた箇所だけ** を修正する。それ以外のカテゴリ・項目・チェック状態(`- [ ]` / `- [x]`)は **完全にそのまま保持** する。
+2. 出力は差分ではなく **修正後の md_packing 完全な全文** を返す。
+3. 既存項目と重複する項目を新規追加してはならない。
+4. ユーザーが「○○を追加して」と書いた場合は、最も適したカテゴリの末尾に `- [ ] {{項目名}}` を1〜数行追加するだけ。
+5. ユーザーが「○○は不要」「○○を消して」と書いた場合は、その行を削除する。
+6. 構造ルール(下記)は新規生成と同じく守る。
+
+========================================
+"""
+
         prompt += """
-【準備リスト(packing)の出力ルール】
-- カテゴリは次の英字コードのいずれかを使う:
-  - belongings (持ち物)
-  - reservation (予約確認)
-  - purchase (事前購入)
-  - research (調べること)
-  - before_leaving (家を出る前にやること)
-- 既存項目と重複しないように
-- 新しく必要そうな項目だけ最大 20 件まで
+【準備リスト(md_packing)の構造ルール — 厳守】
+- Markdown文字列で出力する。プレーンテキストとして見やすく、AIが追記しやすい構造にする。
+- カテゴリごとに `## {絵文字} {ラベル}` の見出しを置く。標準のカテゴリは以下:
+  - `## 🎒 持ち物`
+  - `## ✅ 予約確認`
+  - `## 🛒 事前購入`
+  - `## 🔍 調べること`
+  - `## 🏠 家を出る前にやること`
+- 標準カテゴリ以外でも、旅行内容に合わせて自由にカテゴリを追加してよい(例: `## 📱 アプリ・連絡`)。ただし1カテゴリ1見出しで重複させない。
+- 各見出しの下には GitHub Flavored Markdown の **タスクリスト形式** で項目を並べる:
+  ```
+  - [ ] パスポート
+  - [x] 充電器 — 急速充電対応のもの
+  ```
+- 備考は項目名の後に ` — メモ`(半角スペース + em dash + 半角スペース + メモ)で続ける。短く1行で書く。なくてもよい。
+- チェック状態は新規項目は基本 `- [ ]`(未完了)。既存項目は元の状態を保つ。
+- 表(`|`)や引用(`>`)、コードブロックは使わない。シンプルなチェックリストのみ。
+- 全体で20〜30項目程度を目安に、過不足なく必要なものに絞る。
+
+【出力例】
+```
+## 🎒 持ち物
+- [ ] パスポート
+- [ ] 現金・クレジットカード
+- [ ] 充電器 — 急速充電対応のもの
+
+## ✅ 予約確認
+- [ ] 航空券
+- [ ] ホテル
+
+## 🛒 事前購入
+- [ ] 日焼け止め
+```
 """
 
     prompt += f"\n出力JSON:\n{schema}\n"
@@ -322,24 +497,19 @@ def generate_shiori(
 
     result: dict = {}
     if want_plan:
-        result["md_plan"] = str(data.get("md_plan", "") or "").strip()
+        md = str(data.get("md_plan", "") or "").strip()
+        # 修正モードなのに `##` 日見出しが増えていたら、超過分を切り捨てる(末尾の `## 🧠` 以外)
+        if plan_refinement and md:
+            md = _truncate_extra_day_sections(md, expected_day_count=day_count)
+        # `##` が1個も無くテーブルだけのケースは、ビジュアルエディタが空表示になるので自動補完
+        if md:
+            md = _ensure_day_heading(md)
+        result["md_plan"] = md
     if want_packing:
-        valid_categories = {c[0] for c in PACKING_CATEGORY_CHOICES}
-        cleaned = []
-        for s in data.get("packing", []) or []:
-            cat = s.get("category", "belongings")
-            if cat not in valid_categories:
-                cat = "belongings"
-            name = str(s.get("name", "") or "").strip()
-            if not name:
-                continue
-            cleaned.append({
-                "category": cat,
-                "category_label": dict(PACKING_CATEGORY_CHOICES).get(cat, cat),
-                "name": name[:200],
-                "note": str(s.get("note", "") or "")[:200],
-            })
-        result["packing"] = cleaned
+        md_pack = str(data.get("md_packing", "") or "").strip()
+        if md_pack:
+            md_pack = md_pack.rstrip() + "\n"
+        result["md_packing"] = md_pack
     return result
 
 
