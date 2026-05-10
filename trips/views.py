@@ -103,8 +103,8 @@ def trip_create(request):
     })
 
 
-@login_required
 def trip_detail(request, pk):
+    """旅行詳細はログイン不要で閲覧できる。編集・削除リンクや参加者名はテンプレ側で制御。"""
     trip = get_object_or_404(
         Trip.objects.prefetch_related("memory_notes", "users", "themes"),
         pk=pk,

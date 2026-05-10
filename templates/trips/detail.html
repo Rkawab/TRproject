@@ -23,17 +23,19 @@
                 {% if trip.duration_days %}（{{ trip.duration_days }}日間）{% endif %}
             </p>
             {% endif %}
-            {% if trip.users.all %}
+            {% if user.is_authenticated and trip.users.all %}
             <p class="text-muted small mb-0">
                 👥 {% for u in trip.users.all %}{{ u.username }}{% if not forloop.last %}, {% endif %}{% endfor %}
             </p>
             {% endif %}
         </div>
+        {% if user.is_authenticated %}
         <div class="d-flex gap-2">
             <a href="{% url 'trips:shiori_edit' trip.pk %}" class="btn btn-primary btn-sm">📝 旅のしおりを編集</a>
             <a href="{% url 'trips:album_edit' trip.pk %}" class="btn btn-primary btn-sm">📷 旅のアルバムを編集</a>
             <a href="{% url 'trips:delete' trip.pk %}" class="btn btn-outline-danger btn-sm">削除</a>
         </div>
+        {% endif %}
     </div>
 
     {% if trip.summary %}
@@ -119,8 +121,10 @@
         </div>
     </div>
 
+    {% if user.is_authenticated %}
     <div class="mb-4">
         <a href="{% url 'trips:list' %}" class="btn btn-outline-secondary btn-sm">← 一覧へ戻る</a>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
