@@ -144,7 +144,7 @@ SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
 
 # OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-nano")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 
 
 # サブパス /travel でのデプロイ設定
