@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mt-3 mb-3">
     <h2>📷 {{ title }}</h2>
-    <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary btn-sm">← 詳細へ戻る</a>
+    <a href="{% url 'trips:detail' trip.slug %}" class="btn btn-outline-secondary btn-sm">← 詳細へ戻る</a>
 </div>
 <p class="text-muted small">旅行: <strong>{{ trip.name }}</strong></p>
 
@@ -141,7 +141,7 @@
 
     <div class="d-flex gap-2 mb-4">
         <button type="submit" class="btn btn-primary px-4">保存</button>
-        <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary">キャンセル</a>
+        <a href="{% url 'trips:detail' trip.slug %}" class="btn btn-outline-secondary">キャンセル</a>
     </div>
 </form>
 {% endblock %}
@@ -186,7 +186,7 @@
         errorEl.classList.add('d-none');
         successEl.classList.add('d-none');
         try {
-            const res = await fetch('{% url "trips:ai_journal" trip.pk %}', {
+            const res = await fetch('{% url "trips:ai_journal" trip.slug %}', {
                 method: 'POST',
                 headers: { 'X-CSRFToken': csrfToken },
             });
@@ -228,7 +228,7 @@
             qError.classList.add('d-none');
             qResult.classList.add('d-none');
             try {
-                const res = await fetch('{% url "trips:ai_questions" trip.pk %}', {
+                const res = await fetch('{% url "trips:ai_questions" trip.slug %}', {
                     method: 'POST',
                     headers: { 'X-CSRFToken': csrfToken },
                 });
@@ -272,7 +272,7 @@
             tError.classList.add('d-none');
             tResult.classList.add('d-none');
             try {
-                const res = await fetch('{% url "trips:ai_titles" trip.pk %}', {
+                const res = await fetch('{% url "trips:ai_titles" trip.slug %}', {
                     method: 'POST',
                     headers: { 'X-CSRFToken': csrfToken },
                 });

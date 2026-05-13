@@ -10,7 +10,7 @@
         {% csrf_token %}
         <div class="d-flex gap-2">
             <button type="submit" class="btn btn-danger">削除する</button>
-            <a href="{% url 'trips:detail' trip.pk %}" class="btn btn-outline-secondary">キャンセル</a>
+            <a href="{% url 'trips:detail' trip.slug %}" class="btn btn-outline-secondary">キャンセル</a>
         </div>
     </form>
 </div>

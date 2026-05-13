@@ -218,6 +218,56 @@ SYSTEM_PROMPT = (
 )
 
 
+def _make_safe_slug(text: str, fallback_pk: int | None = None) -> str:
+    """ASCIIのみのフォールバックスラグを生成する。日本語は除去される。"""
+    slug = text.lower()
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"[\s_]+", "-", slug)
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    if not slug:
+        slug = f"trip-{fallback_pk}" if fallback_pk is not None else "trip"
+    return slug[:100]
+
+
+def generate_slug(name: str, destination: str = "", start_date=None, fallback_pk: int | None = None) -> str:
+    """旅行名からURL用スラグをAIで生成する。失敗時はフォールバック。"""
+    date_hint = f"\n開始日: {start_date}" if start_date else ""
+    dest_hint = f"\n行き先: {destination}" if destination else ""
+    prompt = f"""旅行名からURLスラグを作ってください。
+
+ルール:
+- 英小文字・数字・ハイフンのみ（日本語・スペース・記号は不可）
+- 地名・人名は英語またはヘボン式ローマ字に変換
+- 年号は数字のまま使う
+- 20文字以内で短く覚えやすく
+- 意味のある単語を繋げる
+
+旅行名: {name}{dest_hint}{date_hint}
+
+例: 「2026年草津旅行」→ "kusatsu2026"
+例: 「京都・奈良3日間」→ "kyoto-nara-3days"
+例: 「沖縄マリンリゾート2025」→ "okinawa-marine-2025"
+
+JSON:
+{{"slug": "英数字とハイフンのみのスラグ"}}
+"""
+    try:
+        raw = _call_openai(
+            prompt,
+            "URLスラグ生成アシスタント。出力はJSON形式のみ。",
+            max_tokens=100,
+        )
+        data = _parse_json(raw)
+        slug = str(data.get("slug", "")).strip().lower()
+        slug = re.sub(r"[^a-z0-9-]", "", slug)
+        slug = re.sub(r"-+", "-", slug).strip("-")
+        if slug:
+            return slug[:100]
+    except Exception as e:
+        logger.warning("スラグ生成AI失敗: %s", e)
+    return _make_safe_slug(name, fallback_pk=fallback_pk)
+
+
 def generate_questions(trip: Trip) -> list[str]:
     """思い出メモを元に、振り返り整理の質問を生成する。"""
     prompt = f"""旅行から戻ってきた夫婦が、思い出を振り返って整理するための質問を作ってください。

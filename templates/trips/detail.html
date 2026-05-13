@@ -38,9 +38,9 @@
         </div>
         {% if user.is_authenticated %}
         <div class="d-flex gap-2">
-            <a href="{% url 'trips:shiori_edit' trip.pk %}" class="btn btn-primary btn-sm">📝 旅のしおりを編集</a>
-            <a href="{% url 'trips:album_edit' trip.pk %}" class="btn btn-primary btn-sm">📷 旅のアルバムを編集</a>
-            <a href="{% url 'trips:delete' trip.pk %}" class="btn btn-outline-danger btn-sm">削除</a>
+            <a href="{% url 'trips:shiori_edit' trip.slug %}" class="btn btn-primary btn-sm">📝 旅のしおりを編集</a>
+            <a href="{% url 'trips:album_edit' trip.slug %}" class="btn btn-primary btn-sm">📷 旅のアルバムを編集</a>
+            <a href="{% url 'trips:delete' trip.slug %}" class="btn btn-outline-danger btn-sm">削除</a>
         </div>
         {% endif %}
     </div>

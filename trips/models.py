@@ -48,6 +48,7 @@ class Trip(models.Model):
     best_shot_caption = models.CharField(
         max_length=200, blank=True, verbose_name="ベストショットの一言"
     )
+    slug = models.SlugField(max_length=100, unique=True, blank=True, db_index=False, verbose_name="スラグ")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

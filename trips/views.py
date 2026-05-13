@@ -17,6 +17,7 @@ from .ai_service import (
     generate_journal,
     generate_questions,
     generate_shiori,
+    generate_slug,
     suggest_titles,
 )
 from .forms import (
@@ -39,6 +40,22 @@ def _kind_choices():
     return [k.display for k in Kind.objects.all()]
 
 logger = logging.getLogger(__name__)
+
+
+def _generate_unique_slug(trip: Trip) -> str:
+    """AIでスラグを生成し、重複時は末尾に -2, -3 ... を付けて一意にする。"""
+    base_slug = generate_slug(
+        trip.name,
+        destination=trip.destination or "",
+        start_date=trip.start_date,
+        fallback_pk=trip.pk,
+    )
+    slug = base_slug
+    counter = 2
+    while Trip.objects.filter(slug=slug).exclude(pk=trip.pk).exists():
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+    return slug
 
 
 @login_required
@@ -88,8 +105,13 @@ def trip_create(request):
         if form.is_valid():
             with transaction.atomic():
                 trip = form.save()
+                try:
+                    trip.slug = _generate_unique_slug(trip)
+                except Exception:
+                    trip.slug = f"trip-{trip.pk}"
+                trip.save(update_fields=["slug"])
             messages.success(request, f"「{trip.name}」を登録しました。")
-            return redirect("trips:detail", pk=trip.pk)
+            return redirect("trips:detail", slug=trip.slug)
         messages.error(request, "入力内容にエラーがあります。赤字部分をご確認ください。")
     else:
         initial = {}
@@ -103,11 +125,11 @@ def trip_create(request):
     })
 
 
-def trip_detail(request, pk):
+def trip_detail(request, slug):
     """旅行詳細はログイン不要で閲覧できる。編集・削除リンクや参加者名はテンプレ側で制御。"""
     trip = get_object_or_404(
         Trip.objects.prefetch_related("memory_notes", "users", "themes"),
-        pk=pk,
+        slug=slug,
     )
     memory = getattr(trip, "memory", None)
     memory_notes = list(trip.memory_notes.all())
@@ -120,8 +142,8 @@ def trip_detail(request, pk):
 
 
 @login_required
-def trip_delete(request, pk):
-    trip = get_object_or_404(Trip, pk=pk)
+def trip_delete(request, slug):
+    trip = get_object_or_404(Trip, slug=slug)
     if request.method == "POST":
         name = trip.name
         trip.delete()
@@ -131,16 +153,16 @@ def trip_delete(request, pk):
 
 
 @login_required
-def shiori_edit(request, pk):
+def shiori_edit(request, slug):
     """旅のしおり（旅行前情報）: 基本情報 + 旅行計画 + 準備リストを1画面で編集。"""
-    trip = get_object_or_404(Trip, pk=pk)
+    trip = get_object_or_404(Trip, slug=slug)
     if request.method == "POST":
         form = TripShioriForm(request.POST, instance=trip)
         if form.is_valid():
             with transaction.atomic():
                 form.save()
             messages.success(request, "旅のしおりを保存しました。")
-            return redirect("trips:detail", pk=trip.pk)
+            return redirect("trips:detail", slug=trip.slug)
         messages.error(request, "入力内容にエラーがあります。")
     else:
         form = TripShioriForm(instance=trip)
@@ -153,9 +175,9 @@ def shiori_edit(request, pk):
 
 
 @login_required
-def album_edit(request, pk):
+def album_edit(request, slug):
     """旅のアルバム（旅行後情報）: ベストショット + 思い出メモ + 旅行記本文を1画面で編集。"""
-    trip = get_object_or_404(Trip, pk=pk)
+    trip = get_object_or_404(Trip, slug=slug)
     memory, _ = MemoryEntry.objects.get_or_create(trip=trip)
 
     if request.method == "POST":
@@ -168,7 +190,7 @@ def album_edit(request, pk):
                 memory_formset.save()
                 journal_form.save()
             messages.success(request, "旅のアルバムを保存しました。")
-            return redirect("trips:detail", pk=trip.pk)
+            return redirect("trips:detail", slug=trip.slug)
         messages.error(request, "入力内容にエラーがあります。")
     else:
         form = TripAlbumForm(instance=trip)
@@ -188,7 +210,7 @@ def album_edit(request, pk):
 
 
 @login_required
-def ai_shiori(request, pk=None):
+def ai_shiori(request, slug=None):
     """しおり編集／新規作成画面用に、旅行計画(md_plan)と準備リスト(md_packing)を一括生成。
 
     フォーム上の現在値（旅行名・行き先・日付・テーマ・概要）をリクエストから受け取る。
@@ -231,8 +253,8 @@ def ai_shiori(request, pk=None):
             pass
 
     trip = None
-    if pk is not None:
-        trip = get_object_or_404(Trip, pk=pk)
+    if slug is not None:
+        trip = get_object_or_404(Trip, slug=slug)
         if not trip_meta["name"]:
             trip_meta["name"] = trip.name
         if not trip_meta["destination"]:
@@ -273,10 +295,10 @@ def ai_shiori(request, pk=None):
 
 
 @login_required
-def ai_questions(request, pk):
+def ai_questions(request, slug):
     if request.method != "POST":
         return JsonResponse({"error": "POSTのみ対応しています。"}, status=405)
-    trip = get_object_or_404(Trip, pk=pk)
+    trip = get_object_or_404(Trip, slug=slug)
     try:
         questions = generate_questions(trip)
     except AIServiceError as e:
@@ -288,10 +310,10 @@ def ai_questions(request, pk):
 
 
 @login_required
-def ai_journal(request, pk):
+def ai_journal(request, slug):
     if request.method != "POST":
         return JsonResponse({"error": "POSTのみ対応しています。"}, status=405)
-    trip = get_object_or_404(Trip, pk=pk)
+    trip = get_object_or_404(Trip, slug=slug)
     try:
         journal = generate_journal(trip)
     except AIServiceError as e:
@@ -307,15 +329,15 @@ def ai_journal(request, pk):
 
     return JsonResponse({
         "journal": journal,
-        "redirect": reverse("trips:album_edit", args=[trip.pk]),
+        "redirect": reverse("trips:album_edit", args=[trip.slug]),
     })
 
 
 @login_required
-def ai_titles(request, pk):
+def ai_titles(request, slug):
     if request.method != "POST":
         return JsonResponse({"error": "POSTのみ対応しています。"}, status=405)
-    trip = get_object_or_404(Trip, pk=pk)
+    trip = get_object_or_404(Trip, slug=slug)
     try:
         titles = suggest_titles(trip)
     except AIServiceError as e:
